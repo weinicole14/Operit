@@ -52,6 +52,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import com.ai.assistance.operit.ui.features.chat.components.AttachmentChip
+import com.ai.assistance.operit.ui.features.chat.components.ScrollToBottomButton
 import com.ai.assistance.operit.ui.floating.ui.window.components.*
 import com.ai.assistance.operit.ui.floating.ui.window.models.*
 import com.ai.assistance.operit.ui.floating.ui.window.viewmodel.*
@@ -149,17 +150,17 @@ private fun MainWindowBox(
 
     Box(
         modifier = Modifier
-                        .fillMaxSize()
-                        .shadow(8.dp, RoundedCornerShape(cornerRadius))
-                        .border(
-                            width = borderThickness,
+            .fillMaxSize()
+            .shadow(8.dp, RoundedCornerShape(cornerRadius))
+            .border(
+                width = borderThickness,
                 color = if (floatContext.isEdgeResizing || isResizingHeight || isScaling) edgeHighlightColor else Color.Transparent,
-                            shape = RoundedCornerShape(cornerRadius)
-                        )
-                        .clip(RoundedCornerShape(cornerRadius))
-                        .background(backgroundColor)
-                ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
+                shape = RoundedCornerShape(cornerRadius)
+            )
+            .clip(RoundedCornerShape(cornerRadius))
+            .background(backgroundColor)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
             CloseButtonEffect(floatContext, viewModel)
             TitleBar(floatContext, viewModel)
             ChatContentArea(floatContext, viewModel)
@@ -200,10 +201,10 @@ private fun CloseButtonEffect(
     floatContext: FloatContext,
     viewModel: FloatingChatWindowModeViewModel
 ) {
-                        LaunchedEffect(viewModel.closeButtonPressed) {
-                            if (viewModel.closeButtonPressed) {
+    LaunchedEffect(viewModel.closeButtonPressed) {
+        if (viewModel.closeButtonPressed) {
             floatContext.animatedAlpha.animateTo(0f, animationSpec = tween(200))
-                                floatContext.onClose()
+            floatContext.onClose()
             viewModel.closeButtonPressed = false
         }
     }
@@ -221,18 +222,18 @@ private fun TitleBar(
 
     Box(
         modifier = Modifier
-                                .fillMaxWidth()
-                                .height(48.dp)
-                                .background(
+            .fillMaxWidth()
+            .height(48.dp)
+            .background(
                 MaterialTheme.colorScheme.surfaceVariant.copy(
                     alpha = if (viewModel.titleBarHover) 0.3f else 0.2f
-                                        )
-                                )
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                                .pointerInput(Unit) {
-                                    awaitPointerEventScope {
-                                        while (true) {
-                                            val event = awaitPointerEvent()
+                )
+            )
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
                         viewModel.titleBarHover = event.changes.any { it.pressed }
                     }
                 }
@@ -255,27 +256,27 @@ private fun TitleBar(
                     floatContext.onModeChange(FloatingMode.BALL)
                 }
             }
-            
+
             // 中间可拖动区域
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(start = 80.dp, end = 90.dp)
-                                .pointerInput(Unit) {
-                                    detectDragGestures(
-                                        onDragStart = { viewModel.startDragging() },
-                                        onDragEnd = {
-                                            viewModel.endDragging()
-                                            floatContext.saveWindowState?.invoke()
-                                        },
-                                        onDrag = { change, dragAmount ->
-                                            change.consume()
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = { viewModel.startDragging() },
+                            onDragEnd = {
+                                viewModel.endDragging()
+                                floatContext.saveWindowState?.invoke()
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
                                 viewModel.handleMove(dragAmount.x, dragAmount.y)
                             }
                         )
                     }
             )
-            
+
             // 右侧按钮组
             Row(
                 modifier = Modifier
@@ -292,8 +293,12 @@ private fun TitleBar(
                         try {
                             val context = floatContext.chatService
                             if (context != null) {
-                                val intent = Intent(context, com.ai.assistance.operit.ui.main.MainActivity::class.java).apply {
-                                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
+                                val intent = Intent(
+                                    context,
+                                    com.ai.assistance.operit.ui.main.MainActivity::class.java
+                                ).apply {
+                                    flags =
+                                        Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT
                                 }
                                 context.startActivity(intent)
                             }
@@ -324,16 +329,16 @@ private fun TitleBarButton(
     description: String,
     onClick: () -> Unit
 ) {
-                                        IconButton(
+    IconButton(
         onClick = onClick,
-                                            modifier = Modifier.size(30.dp)
-                                        ) {
-                                            Icon(
+        modifier = Modifier.size(30.dp)
+    ) {
+        Icon(
             imageVector = icon,
             contentDescription = description,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(20.dp)
-                                            )
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
@@ -344,29 +349,29 @@ private fun MinimizeButton(
     primaryColor: Color,
     onClick: () -> Unit
 ) {
-                                        IconButton(
+    IconButton(
         onClick = onClick,
         modifier = Modifier
-                                                .size(30.dp)
-                                                .background(
+            .size(30.dp)
+            .background(
                 color = if (viewModel.minimizeHover) primaryColor.copy(alpha = 0.1f) else Color.Transparent,
-                                                    shape = CircleShape
-                                                )
-                                                .pointerInput(Unit) {
-                                                    awaitPointerEventScope {
-                                                        while (true) {
+                shape = CircleShape
+            )
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
                         val event = awaitPointerEvent()
                         viewModel.minimizeHover = event.changes.any { it.pressed }
-                                                        }
-                                                    }
-                                                }
-                                        ) {
-                                            Icon(
+                    }
+                }
+            }
+    ) {
+        Icon(
             imageVector = Icons.Default.KeyboardArrowDown,
-                                                contentDescription = "最小化",
+            contentDescription = "最小化",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.size(20.dp)
-                                            )
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
@@ -379,31 +384,31 @@ private fun CloseButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-                                        IconButton(
+    IconButton(
         onClick = onClick,
         modifier = modifier
-                                                .size(30.dp)
-                                                .background(
+            .size(30.dp)
+            .background(
                 color = if (viewModel.closeHover) errorColor.copy(alpha = 0.1f) else Color.Transparent,
-                                                    shape = CircleShape
-                                                )
-                                                .pointerInput(Unit) {
-                                                    awaitPointerEventScope {
-                                                        while (true) {
+                shape = CircleShape
+            )
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
                         val event = awaitPointerEvent()
                         viewModel.closeHover = event.changes.any { it.pressed }
-                                                        }
-                                                    }
-                                                }
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "关闭",
+                    }
+                }
+            }
+    ) {
+        Icon(
+            imageVector = Icons.Default.Close,
+            contentDescription = "关闭",
             tint = if (viewModel.closeHover) errorColor else onSurfaceVariantColor,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                    }
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
 
 /** 聊天内容区域 */
 @Composable
@@ -431,7 +436,8 @@ private fun ChatMessagesView(
     floatContext: FloatContext,
     viewModel: FloatingChatWindowModeViewModel
 ) {
-                                val scrollState = rememberScrollState()
+    val scrollState = rememberScrollState()
+    val coroutineScope = rememberCoroutineScope()
     val userMessageColor = MaterialTheme.colorScheme.primaryContainer
     val aiMessageColor = MaterialTheme.colorScheme.surface
     val userTextColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -441,98 +447,130 @@ private fun ChatMessagesView(
     val thinkingBackgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
     val thinkingTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
+    // 滚动状态
+    var autoScrollToBottom by remember { mutableStateOf(true) }
+    val onAutoScrollToBottomChange = remember { { it: Boolean -> autoScrollToBottom = it } }
+
     // 分页参数
     val messagesPerPage = 10
-    var currentDepth = remember(floatContext.messages) { mutableStateOf(1) }
+    // 不要使用 messages 作为 key，否则每次消息更新都会重置深度
+    var currentDepth = remember { mutableStateOf(1) }
 
-                                LaunchedEffect(floatContext.messages.size) {
+    // 当消息被清空时（例如切换对话或清空历史），重置深度
+    LaunchedEffect(floatContext.messages.isEmpty()) {
+        if (floatContext.messages.isEmpty()) {
+            currentDepth.value = 1
+        }
+    }
+
+    LaunchedEffect(floatContext.messages.size) {
         val lastAiMessage = floatContext.messages.lastOrNull { it.sender == "ai" }
-                                    val stream = lastAiMessage?.contentStream
-                                    if (stream != null) {
-                                        launch {
-                                            try {
-                                                stream.collect { _ ->
-                                                    viewModel.incrementStreamUpdateTrigger()
-                                                }
-                                            } catch (e: Exception) {
+        val stream = lastAiMessage?.contentStream
+        if (stream != null) {
+            launch {
+                try {
+                    stream.collect { _ ->
+                        viewModel.incrementStreamUpdateTrigger()
+                    }
+                } catch (e: Exception) {
                     Log.e("FloatingChatWindow", "Stream collection error", e)
                 }
             }
         }
     }
 
-                                LaunchedEffect(floatContext.messages.size, viewModel.streamUpdateTrigger) {
-                                    if (floatContext.messages.isNotEmpty()) {
-                                        scrollState.animateScrollTo(scrollState.maxValue)
-                                    }
-                                }
+    LaunchedEffect(floatContext.messages.size, viewModel.streamUpdateTrigger, scrollState.maxValue) {
+        if (floatContext.messages.isNotEmpty() && autoScrollToBottom) {
+            scrollState.animateScrollTo(scrollState.maxValue)
+        }
+    }
 
     val isLoading = floatContext.messages.lastOrNull()?.sender == "think"
 
-                                Column(
-        modifier = Modifier
-                                        .fillMaxSize()
-                                        .verticalScroll(scrollState)
-            .padding(horizontal = 16.dp, vertical = 16.dp)
-                                ) {
-                                    // 分页逻辑
-                                    val messagesCount = floatContext.messages.size
-                                    val maxVisibleIndex = messagesCount - 1
-                                    val minVisibleIndex = maxOf(0, maxVisibleIndex - currentDepth.value * messagesPerPage + 1)
-                                    val hasMoreMessages = minVisibleIndex > 0
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(horizontal = 16.dp, vertical = 16.dp)
+        ) {
+            // 分页逻辑
+            val messagesCount = floatContext.messages.size
+            val maxVisibleIndex = messagesCount - 1
+            val minVisibleIndex =
+                maxOf(0, maxVisibleIndex - currentDepth.value * messagesPerPage + 1)
+            val hasMoreMessages = minVisibleIndex > 0
 
-                                    // 加载更多按钮
-                                    if (hasMoreMessages) {
-                                        Text(
-                                            text = stringResource(id = R.string.load_more_history),
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .clickable { currentDepth.value += 1 }
-                                                .padding(vertical = 16.dp),
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = Color.Gray,
-                                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                    }
+            // 加载更多按钮
+            if (hasMoreMessages) {
+                Text(
+                    text = stringResource(id = R.string.load_more_history),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { currentDepth.value += 1 }
+                        .padding(vertical = 16.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+            }
 
-                                    // 根据当前深度筛选显示的消息
-                                    floatContext.messages.subList(minVisibleIndex, messagesCount).forEachIndexed { relativeIndex, message ->
-                                        val actualIndex = minVisibleIndex + relativeIndex
-                                        if (message.sender != "think") {
-                                            key(message.timestamp) {
-                                                MessageItem(
-                                                    index = actualIndex,
-                                                    message = message,
-                                                    allMessages = floatContext.messages,
-                                                    userMessageColor = userMessageColor,
-                                                    aiMessageColor = aiMessageColor,
-                                                    userTextColor = userTextColor,
-                                                    aiTextColor = aiTextColor,
-                                                    systemMessageColor = systemMessageColor,
-                                                    systemTextColor = systemTextColor,
-                        thinkingBackgroundColor = thinkingBackgroundColor,
-                                                    thinkingTextColor = thinkingTextColor,
-                                                    onSelectMessageToEdit = null,
-                                                    onCopyMessage = null
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                        }
-                                    }
+            // 计算最后一条AI消息的索引，用于流式输出
+            val lastAiMessageIndex = floatContext.messages.indexOfLast { it.sender == "ai" }
 
-        val lastMessage = floatContext.messages.lastOrNull { it.sender != "think" }
-        if (isLoading && (lastMessage?.sender == "user" || (lastMessage?.sender == "ai" && lastMessage.content.isBlank()))) {
-                                        Column(
-                modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 0.dp)
-                                        ) {
-                                            Box(modifier = Modifier.padding(start = 16.dp)) {
-                    LoadingDotsIndicator(MaterialTheme.colorScheme.onSurface)
+            // 根据当前深度筛选显示的消息
+            floatContext.messages.subList(minVisibleIndex, messagesCount)
+                .forEachIndexed { relativeIndex, message ->
+                    val actualIndex = minVisibleIndex + relativeIndex
+                    if (message.sender != "think") {
+                        val isLastAiMessage = message.sender == "ai" && actualIndex == lastAiMessageIndex
+                        
+                        key(message.timestamp) {
+                            MessageItem(
+                                index = actualIndex,
+                                message = message,
+                                isLastAiMessage = isLastAiMessage,
+                                userMessageColor = userMessageColor,
+                                aiMessageColor = aiMessageColor,
+                                userTextColor = userTextColor,
+                                aiTextColor = aiTextColor,
+                                systemMessageColor = systemMessageColor,
+                                systemTextColor = systemTextColor,
+                                thinkingBackgroundColor = thinkingBackgroundColor,
+                                thinkingTextColor = thinkingTextColor,
+                                onSelectMessageToEdit = null,
+                                onCopyMessage = null
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+
+            val lastMessage = floatContext.messages.lastOrNull { it.sender != "think" }
+            if (isLoading && (lastMessage?.sender == "user" || (lastMessage?.sender == "ai" && lastMessage.content.isBlank()))) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 0.dp)
+                ) {
+                    Box(modifier = Modifier.padding(start = 16.dp)) {
+                        LoadingDotsIndicator(MaterialTheme.colorScheme.onSurface)
+                    }
                 }
             }
         }
+
+        // 滚动到底部按钮
+        ScrollToBottomButton(
+            scrollState = scrollState,
+            coroutineScope = coroutineScope,
+            autoScrollToBottom = autoScrollToBottom,
+            onAutoScrollToBottomChange = onAutoScrollToBottomChange,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 16.dp)
+        )
     }
 }
 
@@ -544,10 +582,10 @@ private fun InputDialogView(
 ) {
     Column(
         modifier = Modifier
-                                    .fillMaxSize()
+            .fillMaxSize()
             .padding(16.dp)
     ) {
-                                    Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         InputDialogHeader(viewModel)
         Spacer(modifier = Modifier.height(8.dp))
@@ -564,20 +602,20 @@ private fun InputDialogView(
 /** 输入对话框头部 */
 @Composable
 private fun InputDialogHeader(viewModel: FloatingChatWindowModeViewModel) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.send_message),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = stringResource(R.string.send_message),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
         IconButton(onClick = { viewModel.hideInputDialog() }) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "关闭",
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "关闭",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
@@ -589,14 +627,14 @@ private fun InputDialogHeader(viewModel: FloatingChatWindowModeViewModel) {
 private fun AttachmentsList(floatContext: FloatContext) {
     Row(
         modifier = Modifier
-                                                .fillMaxWidth()
+            .fillMaxWidth()
             .padding(vertical = 4.dp)
             .animateContentSize(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         floatContext.attachments.forEach { attachment ->
-                                                AttachmentChip(
-                                                    attachmentInfo = attachment,
+            AttachmentChip(
+                attachmentInfo = attachment,
                 onRemove = { floatContext.onRemoveAttachment?.invoke(attachment.filePath) },
                 onInsert = { }
             )
@@ -610,45 +648,46 @@ private fun ColumnScope.InputTextField(
     floatContext: FloatContext,
     viewModel: FloatingChatWindowModeViewModel
 ) {
-                                    val focusRequester = remember { FocusRequester() }
+    val focusRequester = remember { FocusRequester() }
 
-                                    // 检测 AI 是否正在处理消息 - 使用 chatService 的 isLoading 状态
-                                    val isProcessing = floatContext.chatService?.getChatCore()?.isLoading?.collectAsState()?.value ?: false
+    // 检测 AI 是否正在处理消息 - 使用 chatService 的 isLoading 状态
+    val isProcessing =
+        floatContext.chatService?.getChatCore()?.isLoading?.collectAsState()?.value ?: false
 
-                                    DisposableEffect(floatContext.showInputDialog) {
-                                        if (floatContext.showInputDialog) {
-                                            floatContext.coroutineScope.launch {
-                                                delay(300)
-                                                try {
-                                                    focusRequester.requestFocus()
-                                                } catch (e: Exception) {
+    DisposableEffect(floatContext.showInputDialog) {
+        if (floatContext.showInputDialog) {
+            floatContext.coroutineScope.launch {
+                delay(300)
+                try {
+                    focusRequester.requestFocus()
+                } catch (e: Exception) {
                     Log.e("FloatingChatWindow", "Failed to request focus", e)
                 }
             }
         }
-                                        onDispose {}
-                                    }
+        onDispose {}
+    }
 
     Box(
         modifier = Modifier
-                                        .fillMaxSize()
+            .fillMaxSize()
             .weight(1f)
     ) {
-                                        OutlinedTextField(
-                                            value = floatContext.userMessage,
-                                            onValueChange = { floatContext.userMessage = it },
-                                            placeholder = { Text("请输入您的问题...") },
+        OutlinedTextField(
+            value = floatContext.userMessage,
+            onValueChange = { floatContext.userMessage = it },
+            placeholder = { Text("请输入您的问题...") },
             modifier = Modifier
-                                                .fillMaxSize()
-                                                .focusRequester(focusRequester),
-                                            textStyle = TextStyle.Default,
+                .fillMaxSize()
+                .focusRequester(focusRequester),
+            textStyle = TextStyle.Default,
             maxLines = Int.MAX_VALUE,
             keyboardOptions = KeyboardOptions(
-                                                imeAction = ImeAction.Send,
-                                                autoCorrect = true
-                                            ),
+                imeAction = ImeAction.Send,
+                autoCorrect = true
+            ),
             keyboardActions = KeyboardActions(
-                                                onSend = {
+                onSend = {
                     if (floatContext.userMessage.isNotBlank() || floatContext.attachments.isNotEmpty()) {
                         floatContext.onSendMessage?.invoke(
                             floatContext.userMessage,
@@ -663,50 +702,51 @@ private fun ColumnScope.InputTextField(
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = MaterialTheme.colorScheme.primary,
                 unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                                            ),
-                                            shape = RoundedCornerShape(12.dp)
-                                        )
+            ),
+            shape = RoundedCornerShape(12.dp)
+        )
 
-                                        // 发送/取消按钮
-                                        FloatingActionButton(
-                                            onClick = {
-                                                when {
-                                                    isProcessing -> {
-                                                        // 取消当前消息处理
-                                                        floatContext.onCancelMessage?.invoke()
-                                                    }
-                                                    floatContext.userMessage.isNotBlank() || floatContext.attachments.isNotEmpty() -> {
-                                                        // 发送消息
-                                                        floatContext.onSendMessage?.invoke(
-                                                            floatContext.userMessage,
-                                                            PromptFunctionType.CHAT
-                                                        )
-                                                        floatContext.userMessage = ""
-                                                        floatContext.showInputDialog = false
-                                                        floatContext.showAttachmentPanel = false
-                                                    }
-                                                }
-                                            },
+        // 发送/取消按钮
+        FloatingActionButton(
+            onClick = {
+                when {
+                    isProcessing -> {
+                        // 取消当前消息处理
+                        floatContext.onCancelMessage?.invoke()
+                    }
+
+                    floatContext.userMessage.isNotBlank() || floatContext.attachments.isNotEmpty() -> {
+                        // 发送消息
+                        floatContext.onSendMessage?.invoke(
+                            floatContext.userMessage,
+                            PromptFunctionType.CHAT
+                        )
+                        floatContext.userMessage = ""
+                        floatContext.showInputDialog = false
+                        floatContext.showAttachmentPanel = false
+                    }
+                }
+            },
             modifier = Modifier
-                                                .align(Alignment.BottomEnd)
-                                                .padding(8.dp)
-                                                .size(46.dp),
-                                            containerColor = if (isProcessing) 
-                                                MaterialTheme.colorScheme.error 
-                                            else 
-                                                MaterialTheme.colorScheme.primary
-                                        ) {
-                                            Icon(
-                                                imageVector = if (isProcessing) Icons.Default.Close else Icons.Default.Send,
-                                                contentDescription = if (isProcessing) "取消" else "发送",
-                                                tint = if (isProcessing)
-                                                    MaterialTheme.colorScheme.onError
-                                                else
-                                                    MaterialTheme.colorScheme.onPrimary
-                                            )
-                                        }
-                                    }
-                                }
+                .align(Alignment.BottomEnd)
+                .padding(8.dp)
+                .size(46.dp),
+            containerColor = if (isProcessing)
+                MaterialTheme.colorScheme.error
+            else
+                MaterialTheme.colorScheme.primary
+        ) {
+            Icon(
+                imageVector = if (isProcessing) Icons.Default.Close else Icons.Default.Send,
+                contentDescription = if (isProcessing) "取消" else "发送",
+                tint = if (isProcessing)
+                    MaterialTheme.colorScheme.onError
+                else
+                    MaterialTheme.colorScheme.onPrimary
+            )
+        }
+    }
+}
 
 /** 右边框缩放手柄 */
 @Composable
@@ -727,39 +767,39 @@ private fun BoxScope.RightEdgeScaleHandle(
             .align(Alignment.CenterEnd)
             .fillMaxHeight()
             .width(16.dp)
-                            .pointerInput(Unit) {
-                                awaitPointerEventScope {
-                                    while (true) {
-                                        val event = awaitPointerEvent()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
                         isHovering = event.changes.any { it.pressed }
-                                    }
-                                }
-                            }
-                        .pointerInput(Unit) {
-                            detectDragGestures(
-                                    onDragStart = {
-                                        viewModel.startDragging()
-                                        onScalingChange(true)
-                                        dragStartScale = viewModel.windowState.scale
-                                        baseWidthInPx = with(density) { viewModel.windowState.width.toPx() }
-                                        totalDragX = 0f
-                                    },
-                                    onDragEnd = {
-                                        viewModel.endDragging()
-                                        onScalingChange(false)
-                                    },
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                        totalDragX += dragAmount.x
+                    }
+                }
+            }
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = {
+                        viewModel.startDragging()
+                        onScalingChange(true)
+                        dragStartScale = viewModel.windowState.scale
+                        baseWidthInPx = with(density) { viewModel.windowState.width.toPx() }
+                        totalDragX = 0f
+                    },
+                    onDragEnd = {
+                        viewModel.endDragging()
+                        onScalingChange(false)
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        totalDragX += dragAmount.x
 
-                                        if (baseWidthInPx > 0) {
-                                            val scaleDelta = totalDragX / baseWidthInPx
-                                            val newScale = dragStartScale + scaleDelta
-                                        viewModel.handleScaleChange(newScale)
-                                        }
-                                    }
-                                )
-                            }
+                        if (baseWidthInPx > 0) {
+                            val scaleDelta = totalDragX / baseWidthInPx
+                            val newScale = dragStartScale + scaleDelta
+                            viewModel.handleScaleChange(newScale)
+                        }
+                    }
+                )
+            }
     ) {
         // 高亮显示
         if (isHovering) {
@@ -795,16 +835,16 @@ private fun BoxScope.CornerScaleHandle(
         modifier = Modifier
             .align(alignment)
             .size(24.dp)
-                            .pointerInput(Unit) {
-                                awaitPointerEventScope {
-                                    while (true) {
-                                        val event = awaitPointerEvent()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
                         isHovering = event.changes.any { it.pressed }
-                                    }
-                                }
-                            }
-                            .pointerInput(Unit) {
-                                detectDragGestures(
+                    }
+                }
+            }
+            .pointerInput(Unit) {
+                detectDragGestures(
                     onDragStart = {
                         viewModel.startDragging()
                         onScalingChange(true)
@@ -818,22 +858,25 @@ private fun BoxScope.CornerScaleHandle(
                         viewModel.endDragging()
                         onScalingChange(false)
                     },
-                                    onDrag = { change, dragAmount ->
-                                        change.consume()
+                    onDrag = { change, dragAmount ->
+                        change.consume()
                         totalDragX += dragAmount.x
                         totalDragY += dragAmount.y
 
-                        val alignmentFactorX = if (alignment == Alignment.TopStart || alignment == Alignment.BottomStart) -1 else 1
-                        val alignmentFactorY = if (alignment == Alignment.TopStart || alignment == Alignment.TopEnd) -1 else 1
+                        val alignmentFactorX =
+                            if (alignment == Alignment.TopStart || alignment == Alignment.BottomStart) -1 else 1
+                        val alignmentFactorY =
+                            if (alignment == Alignment.TopStart || alignment == Alignment.TopEnd) -1 else 1
 
                         val effectiveDragX = totalDragX * alignmentFactorX
                         val effectiveDragY = totalDragY * alignmentFactorY
 
-                        val scaleDelta = if (kotlin.math.abs(effectiveDragX) > kotlin.math.abs(effectiveDragY)) {
-                            if (baseWidthInPx > 0) effectiveDragX / baseWidthInPx else 0f
-                        } else {
-                            if (baseHeightInPx > 0) effectiveDragY / baseHeightInPx else 0f
-                        }
+                        val scaleDelta =
+                            if (kotlin.math.abs(effectiveDragX) > kotlin.math.abs(effectiveDragY)) {
+                                if (baseWidthInPx > 0) effectiveDragX / baseWidthInPx else 0f
+                            } else {
+                                if (baseHeightInPx > 0) effectiveDragY / baseHeightInPx else 0f
+                            }
                         val newScale = dragStartScale + scaleDelta
                         viewModel.handleScaleChange(newScale)
                     }
@@ -868,16 +911,16 @@ private fun BoxScope.BottomResizeHandle(
             .align(Alignment.BottomCenter)
             .fillMaxWidth()
             .height(12.dp)
-                        .pointerInput(Unit) {
-                                awaitPointerEventScope {
-                                    while (true) {
-                                        val event = awaitPointerEvent()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
                         isHovering = event.changes.any { it.pressed }
-                                    }
-                                }
-                            }
-                            .pointerInput(Unit) {
-                                detectDragGestures(
+                    }
+                }
+            }
+            .pointerInput(Unit) {
+                detectDragGestures(
                     onDragStart = {
                         viewModel.startEdgeResize()
                         onResizingChange(true)
@@ -886,8 +929,8 @@ private fun BoxScope.BottomResizeHandle(
                         viewModel.endEdgeResize()
                         onResizingChange(false)
                     },
-                                    onDrag = { change, dragAmount ->
-                                        change.consume()
+                    onDrag = { change, dragAmount ->
+                        change.consume()
                         // 直接使用拖动距离，不需要除以 scale
                         val heightDelta = with(density) { dragAmount.y.toDp() }
                         val newHeight = viewModel.windowState.height + heightDelta
@@ -912,14 +955,14 @@ private fun BoxScope.BottomResizeHandle(
                 val lineSpacing = size.height / 4
 
                 // 绘制三条横线
-                            drawLine(
-                                color = lineColor,
+                drawLine(
+                    color = lineColor,
                     start = Offset(0f, lineSpacing),
                     end = Offset(size.width, lineSpacing),
                     strokeWidth = 2f
-                            )
-                            drawLine(
-                                color = lineColor,
+                )
+                drawLine(
+                    color = lineColor,
                     start = Offset(0f, lineSpacing * 2),
                     end = Offset(size.width, lineSpacing * 2),
                     strokeWidth = 2f

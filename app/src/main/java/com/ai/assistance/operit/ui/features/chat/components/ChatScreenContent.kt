@@ -108,8 +108,6 @@ fun ChatScreenContent(
         onVerticalDragChange: (Float) -> Unit,
         dragThreshold: Float,
         scrollState: ScrollState,
-        showScrollButton: Boolean,
-        onShowScrollButtonChange: (Boolean) -> Unit,
         autoScrollToBottom: Boolean,
         onAutoScrollToBottomChange: (Boolean) -> Unit,
         coroutineScope: CoroutineScope,
@@ -604,35 +602,15 @@ fun ChatScreenContent(
         }
 
         // 滚动到底部按钮
-        AnimatedVisibility(
-            visible = showScrollButton,
+        ScrollToBottomButton(
+            scrollState = scrollState,
+            coroutineScope = coroutineScope,
+            autoScrollToBottom = autoScrollToBottom,
+            onAutoScrollToBottomChange = onAutoScrollToBottomChange,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 16.dp),
-            enter = fadeIn(),
-            exit = fadeOut()
-        ) {
-            IconButton(
-                onClick = {
-                    coroutineScope.launch {
-                        scrollState.animateScrollTo(scrollState.maxValue)
-                    }
-                    onAutoScrollToBottomChange(true) // 重新启用自动滚动
-                    onShowScrollButtonChange(false) // 点击后隐藏按钮
-                },
-                modifier = Modifier
-                    .background(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f),
-                        shape = RoundedCornerShape(50)
-                    )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.KeyboardArrowDown,
-                    contentDescription = "Scroll to bottom",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
+                .padding(bottom = 16.dp)
+        )
 
 
         // 导出平台选择对话框

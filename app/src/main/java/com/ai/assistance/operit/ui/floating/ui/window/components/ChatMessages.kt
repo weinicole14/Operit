@@ -28,7 +28,7 @@ import com.ai.assistance.operit.ui.features.chat.components.style.cursor.CursorS
 fun MessageItem(
         index: Int,
         message: ChatMessage,
-        allMessages: List<ChatMessage>,
+        isLastAiMessage: Boolean,
         userMessageColor: Color,
         aiMessageColor: Color,
         userTextColor: Color,
@@ -47,10 +47,6 @@ fun MessageItem(
         val messageModifier = Modifier
 
         Box(modifier = messageModifier) {
-                // 检查这是否是最后一条AI消息
-                val isLastAiMessage =
-                        message.sender == "ai" &&
-                                index == allMessages.indexOfLast { it.sender == "ai" }
                 val streamToRender = if (isLastAiMessage) message.contentStream else null
 
                 CursorStyleChatMessage(

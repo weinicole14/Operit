@@ -308,42 +308,6 @@ val actualViewModel: ChatViewModel = viewModel ?: viewModel { ChatViewModel(cont
     // 滚动状态
     var autoScrollToBottom by remember { mutableStateOf(true) }
     val onAutoScrollToBottomChange = remember { { it: Boolean -> autoScrollToBottom = it } }
-    var showScrollButton by remember { mutableStateOf(false) }
-    val onShowScrollButtonChange = remember { { it: Boolean -> showScrollButton = it } }
-
-    // 核心滚动逻辑
-    // 使用 LaunchedEffect(scrollState) 确保监听器在组件的整个生命周期内持续运行，
-    // 避免因 chatHistory.size 变化而频繁重启，从而解决了 lastPosition 被意外重置的问题。
-    LaunchedEffect(scrollState) {
-        var lastPosition = scrollState.value
-        snapshotFlow { scrollState.value }
-            .distinctUntilChanged() // 仅在滚动值实际变化时触发
-            .collect { currentPosition ->
-                // isScrollInProgress 仅在用户触摸屏幕并拖动时为 true。
-                // 这是区分用户手动滚动和程序化滚动（如内容变化）的关键。
-                if (scrollState.isScrollInProgress) {
-                    val scrolledUp = currentPosition < lastPosition
-                    if (scrolledUp) {
-                        // 用户明确向上滚动，禁用自动滚动并显示按钮
-                        if (autoScrollToBottom) {
-                            Log.d("AIChatScreen", "用户向上滚动，禁用自动滚动")
-                            autoScrollToBottom = false
-                            showScrollButton = true
-                        }
-                    } else {
-                        // 用户向下滚动，检查是否已到达或接近底部
-                        val isAtBottom = scrollState.value >= scrollState.maxValue
-                        if (isAtBottom && !autoScrollToBottom) {
-                            Log.d("AIChatScreen", "用户滚动到底部，启用自动滚动")
-                            autoScrollToBottom = true
-                            showScrollButton = false
-                        }
-                    }
-                }
-                // 始终更新 lastPosition，为下一次滚动比较做准备
-                lastPosition = currentPosition
-            }
-    }
 
     // 处理来自ViewModel的滚动事件（流式输出时）
     LaunchedEffect(Unit) {
@@ -533,7 +497,6 @@ val actualViewModel: ChatViewModel = viewModel ?: viewModel { ChatViewModel(cont
                                         actualViewModel.resetAttachmentPanelState()
                                         // 发送新问题时，恢复自动滚动到底部
                                         autoScrollToBottom = true
-                                        showScrollButton = false
                                     },
                                     onCancelMessage = { actualViewModel.cancelCurrentMessage() },
                                     isLoading = isLoading,
@@ -662,8 +625,6 @@ val actualViewModel: ChatViewModel = viewModel ?: viewModel { ChatViewModel(cont
                                 onVerticalDragChange = onVerticalDragChange,
                                 dragThreshold = dragThreshold,
                                 scrollState = scrollState,
-                                showScrollButton = showScrollButton,
-                                onShowScrollButtonChange = onShowScrollButtonChange,
                                 autoScrollToBottom = autoScrollToBottom,
                                 onAutoScrollToBottomChange = onAutoScrollToBottomChange,
                                 coroutineScope = coroutineScope,
