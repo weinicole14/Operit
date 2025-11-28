@@ -3414,4 +3414,22 @@
     <string name="delete_selected_workspaces">Delete Selected Workspaces (%1$d)</string>
     <string name="delete_workspaces_confirmation">Are you sure you want to delete the selected %1$d workspace(s)?\n\nAll files and data will be permanently lost.</string>
     <string name="not_used_by_any_chat">Not used by any chat</string>
+    
+    <!-- Accessibility - Markdown Block Types -->
+    <string name="code_block">Code Block</string>
+    <string name="table_block">Table</string>
+    <string name="plan_execution_graph">Execution Plan</string>
+    <string name="image_block">Image</string>
+    <string name="image_load_failed">Image failed to load</string>
+    <string name="save_image">Save Image</string>
+    <string name="image_saved">Image saved to gallery</string>
+    <string name="save_failed">Save failed</string>
+    <string name="xml_block">XML Block</string>
+    <string name="tool_call_block">Tool Call</string>
+    <string name="tool_result_block">Tool Result</string>
+    <string name="thinking_process_block">Thinking Process</string>
+    <string name="search_content_block">Search Content</string>
+    <string name="status_info_block">Status Info</string>
+    <string name="html_content_block">HTML Content</string>
+    <string name="mood_tag_block">Mood Tag</string>
 </resources>

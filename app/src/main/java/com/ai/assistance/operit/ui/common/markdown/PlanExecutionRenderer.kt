@@ -58,6 +58,9 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextMeasurer
@@ -70,12 +73,12 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ai.assistance.operit.R
 import com.ai.assistance.operit.api.chat.plan.ExecutionGraph
 import com.ai.assistance.operit.api.chat.plan.PlanParser
 import com.ai.assistance.operit.api.chat.plan.TaskNode
 import com.google.gson.Gson
 import java.util.regex.Pattern
-
 
 private enum class TaskStatus {
     TODO, IN_PROGRESS, COMPLETED, FAILED
@@ -192,12 +195,12 @@ fun PlanExecutionRenderer(
                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.size(16.dp)
                 )
-        Text(
+                Text(
                     text = "Preparing execution plan...",
-            style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     fontSize = 11.sp
-        )
+                )
             }
         }
     }
@@ -211,10 +214,13 @@ private fun ExecutionGraphDisplay(
     summary: String?,
     modifier: Modifier = Modifier
 ) {
+    val planGraphDesc = stringResource(R.string.plan_execution_graph)
+    
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 2.dp),
+            .padding(horizontal = 4.dp, vertical = 2.dp)
+            .semantics { contentDescription = planGraphDesc },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)

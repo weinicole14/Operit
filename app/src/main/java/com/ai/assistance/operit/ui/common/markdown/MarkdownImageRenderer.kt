@@ -41,11 +41,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -53,6 +56,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import com.ai.assistance.operit.R
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -75,12 +79,12 @@ internal fun isCompleteImageMarkdown(content: String): Boolean {
 /** 从Markdown图片语法中提取Alt文本 */
 internal fun extractMarkdownImageAlt(imageContent: String): String {
     val startMarker = imageContent.indexOf("![")
-    if (startMarker == -1) return "图片"
+    if (startMarker == -1) return ""
 
     val startBracket = startMarker + 2 // 跳过"!["
     val endBracket = imageContent.indexOf(']', startBracket)
 
-    if (endBracket == -1) return "图片"
+    if (endBracket == -1) return ""
     return imageContent.substring(startBracket, endBracket).trim()
 }
 
@@ -124,8 +128,18 @@ fun MarkdownImageRenderer(
     // 全屏预览状态
     var showFullScreen by remember { mutableStateOf(false) }
 
+    // 无障碍朗读描述：只朗读块类型
+    val accessibilityDesc = if (imageAlt.isNotEmpty()) {
+        "${stringResource(R.string.image_block)}: $imageAlt"
+    } else {
+        stringResource(R.string.image_block)
+    }
+
     Column(
-            modifier = modifier.fillMaxWidth().padding(vertical = 2.dp) // 最小化垂直边距
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp)
+                .semantics { contentDescription = accessibilityDesc }
     ) {
         // 图片容器 - 移除容器的圆角，只保留基本的布局
         Box(
@@ -141,7 +155,7 @@ fun MarkdownImageRenderer(
                                     .data(imageUrl)
                                     .crossfade(true)
                                     .build(),
-                    contentDescription = imageAlt,
+                    contentDescription = null,
                     modifier =
                             Modifier.clip(RoundedCornerShape(12.dp))
                                 .align(Alignment.Center)
@@ -167,7 +181,7 @@ fun MarkdownImageRenderer(
                     },
                     error = {
                         Text(
-                                text = "图片加载失败",
+                                text = stringResource(R.string.image_load_failed),
                                 color = Color.Red.copy(alpha = 0.7f), // 更淡的文字颜色
                                 style = MaterialTheme.typography.bodySmall,
                                 maxLines = 1,
@@ -178,7 +192,7 @@ fun MarkdownImageRenderer(
         }
 
         // 显示图片说明，仅在需要时显示
-        if (imageAlt.isNotEmpty() && imageAlt != "图片") {
+        if (imageAlt.isNotEmpty()) {
             Text(
                     text = imageAlt,
                     style = MaterialTheme.typography.bodySmall,
@@ -352,7 +366,7 @@ private fun FullScreenImageDialog(imageUrl: String, imageAlt: String, onDismiss:
                         } else {
                             Icon(
                                     imageVector = Icons.Default.Download,
-                                    contentDescription = "保存图片",
+                                    contentDescription = stringResource(R.string.save_image),
                                     tint = Color.White
                             )
                         }
@@ -370,7 +384,7 @@ private fun FullScreenImageDialog(imageUrl: String, imageAlt: String, onDismiss:
                             contentAlignment = Alignment.Center
                     ) {
                         Text(
-                                text = if (success) "图片已保存到相册" else "保存失败",
+                                text = if (success) stringResource(R.string.image_saved) else stringResource(R.string.save_failed),
                                 color = Color.White,
                                 style = MaterialTheme.typography.bodyMedium
                         )

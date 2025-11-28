@@ -134,6 +134,18 @@
                 android:resource="@xml/file_paths" />
         </provider>
         
+        <!-- Workspace Documents Provider for SAF -->
+        <provider
+            android:name=".provider.WorkspaceDocumentsProvider"
+            android:authorities="com.ai.assistance.operit.documents.workspace"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+        
         <!-- 禁用 WorkManager 的自动初始化，由 Application 手动管理 -->
         <provider
             android:name="androidx.startup.InitializationProvider"

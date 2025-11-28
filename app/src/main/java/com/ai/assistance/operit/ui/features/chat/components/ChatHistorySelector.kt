@@ -74,6 +74,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
@@ -399,6 +400,9 @@ fun ChatHistorySelector(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 4.dp)
                             .clip(MaterialTheme.shapes.medium)
+                            .semantics {
+                                contentDescription = context.getString(R.string.edit_title)
+                            }
                             .clickable {
                                 chatToEdit = chatItemActionTarget
                                 chatItemActionTarget = null
@@ -413,15 +417,18 @@ fun ChatHistorySelector(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
-                                contentDescription = stringResource(R.string.edit_title),
+                                contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clearAndSetSemantics {}
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Text(
                                 stringResource(R.string.edit_title), 
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.clearAndSetSemantics {}
                             )
                         }
                     }
@@ -432,6 +439,9 @@ fun ChatHistorySelector(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 4.dp)
                             .clip(MaterialTheme.shapes.medium)
+                            .semantics {
+                                contentDescription = context.getString(R.string.move_up)
+                            }
                             .clickable {
                                 val targetChat = chatItemActionTarget!!
                                 val currentIndex = filteredHistories.indexOfFirst { it.id == targetChat.id }
@@ -456,15 +466,18 @@ fun ChatHistorySelector(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowUp,
-                                contentDescription = stringResource(R.string.move_up),
+                                contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clearAndSetSemantics {}
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Text(
                                 stringResource(R.string.move_up), 
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.clearAndSetSemantics {}
                             )
                         }
                     }
@@ -475,6 +488,9 @@ fun ChatHistorySelector(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 4.dp)
                             .clip(MaterialTheme.shapes.medium)
+                            .semantics {
+                                contentDescription = context.getString(R.string.move_down)
+                            }
                             .clickable {
                                 val targetChat = chatItemActionTarget!!
                                 val currentIndex = filteredHistories.indexOfFirst { it.id == targetChat.id }
@@ -499,15 +515,18 @@ fun ChatHistorySelector(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = stringResource(R.string.move_down),
+                                contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clearAndSetSemantics {}
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Text(
                                 stringResource(R.string.move_down), 
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.clearAndSetSemantics {}
                             )
                         }
                     }
@@ -518,6 +537,9 @@ fun ChatHistorySelector(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 4.dp)
                             .clip(MaterialTheme.shapes.medium)
+                            .semantics {
+                                contentDescription = context.getString(R.string.delete)
+                            }
                             .clickable {
                                 onDeleteChat(chatItemActionTarget!!.id)
                                 chatItemActionTarget = null
@@ -532,15 +554,18 @@ fun ChatHistorySelector(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Delete,
-                                contentDescription = stringResource(R.string.delete),
+                                contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clearAndSetSemantics {}
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Text(
                                 stringResource(R.string.delete), 
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.clearAndSetSemantics {}
                             )
                         }
                     }
@@ -598,6 +623,9 @@ fun ChatHistorySelector(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 4.dp)
                             .clip(MaterialTheme.shapes.medium)
+                            .semantics {
+                                contentDescription = context.getString(R.string.rename_group)
+                            }
                             .clickable {
                                 groupToRename = groupActionTarget
                                 groupActionTarget = null
@@ -612,15 +640,18 @@ fun ChatHistorySelector(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.DriveFileRenameOutline,
-                                contentDescription = stringResource(R.string.rename),
+                                contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clearAndSetSemantics {}
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Text(
                                 stringResource(R.string.rename_group), 
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.clearAndSetSemantics {}
                             )
                         }
                     }
@@ -631,6 +662,9 @@ fun ChatHistorySelector(
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 4.dp)
                             .clip(MaterialTheme.shapes.medium)
+                            .semantics {
+                                contentDescription = context.getString(R.string.delete_group)
+                            }
                             .clickable {
                                 groupToDelete = groupActionTarget
                                 groupActionTarget = null
@@ -645,15 +679,18 @@ fun ChatHistorySelector(
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.Delete,
-                                contentDescription = stringResource(R.string.delete),
+                                contentDescription = null,
                                 tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clearAndSetSemantics {}
                             )
                             Spacer(modifier = Modifier.width(16.dp))
                             Text(
                                 stringResource(R.string.delete_group), 
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.clearAndSetSemantics {}
                             )
                         }
                     }
@@ -1325,7 +1362,7 @@ fun ChatHistorySelector(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 16.dp, bottom = 8.dp)
-                                .semantics(mergeDescendants = true) {
+                                .semantics {
                                     contentDescription = "${item.name}, $stateDescription"
                                 }
                                 .pointerInput(Unit) {
@@ -1366,8 +1403,10 @@ fun ChatHistorySelector(
                                     if (avatarUri != null) {
                                         Image(
                                             painter = rememberAsyncImagePainter(model = Uri.parse(avatarUri)),
-                                            contentDescription = "Avatar",
-                                            modifier = Modifier.fillMaxSize(),
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clearAndSetSemantics {},
                                             contentScale = ContentScale.Crop
                                         )
                                     } else {
@@ -1375,7 +1414,9 @@ fun ChatHistorySelector(
                                             imageVector = Icons.Default.Person,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(16.dp)
+                                            modifier = Modifier
+                                                .size(16.dp)
+                                                .clearAndSetSemantics {}
                                         )
                                     }
                                 }
@@ -1383,7 +1424,8 @@ fun ChatHistorySelector(
                                     text = item.name,
                                     style = MaterialTheme.typography.titleSmall,
                                     color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.clearAndSetSemantics {}
                                 )
                             }
                             
@@ -1409,6 +1451,7 @@ fun ChatHistorySelector(
                                 modifier = Modifier
                                     .padding(end = 16.dp)
                                     .size(24.dp)
+                                    .clearAndSetSemantics {}
                             )
                         }
                     }
@@ -1448,7 +1491,7 @@ fun ChatHistorySelector(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(MaterialTheme.shapes.medium)
-                                    .semantics(mergeDescendants = true) {
+                                    .semantics {
                                         contentDescription = "${item.name}, $stateDescription"
                                     }
                                     .pointerInput(Unit) {
@@ -1482,8 +1525,9 @@ fun ChatHistorySelector(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Folder,
-                                        contentDescription = "Group",
-                                        tint = MaterialTheme.colorScheme.primary
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.clearAndSetSemantics {}
                                     )
                                     Column(
                                         modifier = Modifier.weight(1f)
@@ -1495,20 +1539,23 @@ fun ChatHistorySelector(
                                                 text = item.name,
                                                 style = MaterialTheme.typography.titleSmall,
                                                 fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.clearAndSetSemantics {}
                                             )
                                             if (item.name != ungroupedText && !hasLongPressedGroup) {
                                                 Text(
                                                     text = " (" + stringResource(R.string.long_press_manage) + ")",
                                                     style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                                    modifier = Modifier.clearAndSetSemantics {}
                                                 )
                                             }
                                         }
                                     }
                                     Icon(
                                         imageVector = if (collapsedGroups.contains(item.key)) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp,
-                                        contentDescription = if (collapsedGroups.contains(item.key)) stringResource(R.string.expand) else stringResource(R.string.collapse)
+                                        contentDescription = null,
+                                        modifier = Modifier.clearAndSetSemantics {}
                                     )
                                 }
                             }

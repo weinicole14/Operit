@@ -1270,4 +1270,22 @@
     <!-- Screen Titles -->
     <string name="screen_title_layout_adjustment">Ajuste de Diseño</string>
     
+    <!-- Accesibilidad - Tipos de Bloques Markdown -->
+    <string name="code_block">Bloque de Código</string>
+    <string name="table_block">Tabla</string>
+    <string name="plan_execution_graph">Plan de Ejecución</string>
+    <string name="image_block">Imagen</string>
+    <string name="image_load_failed">Error al cargar la imagen</string>
+    <string name="save_image">Guardar Imagen</string>
+    <string name="image_saved">Imagen guardada en la galería</string>
+    <string name="save_failed">Error al guardar</string>
+    <string name="xml_block">Bloque XML</string>
+    <string name="tool_call_block">Llamada de Herramienta</string>
+    <string name="tool_result_block">Resultado de Herramienta</string>
+    <string name="thinking_process_block">Proceso de Pensamiento</string>
+    <string name="search_content_block">Contenido de Búsqueda</string>
+    <string name="status_info_block">Información de Estado</string>
+    <string name="html_content_block">Contenido HTML</string>
+    <string name="mood_tag_block">Etiqueta de Ánimo</string>
+    
 </resources>

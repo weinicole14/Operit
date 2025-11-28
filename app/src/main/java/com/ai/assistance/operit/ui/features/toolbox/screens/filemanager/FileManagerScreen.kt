@@ -1,12 +1,21 @@
 package com.ai.assistance.operit.ui.features.toolbox.screens.filemanager
 
 import NewFolderDialog
+import android.os.Environment
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.SdCard
+import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.ai.assistance.operit.core.tools.AIToolHandler
@@ -16,6 +25,7 @@ import com.ai.assistance.operit.ui.features.toolbox.screens.filemanager.componen
 import com.ai.assistance.operit.ui.features.toolbox.screens.filemanager.components.DisplayMode
 import com.ai.assistance.operit.ui.features.toolbox.screens.filemanager.models.FileItem
 import com.ai.assistance.operit.ui.features.toolbox.screens.filemanager.viewmodel.FileManagerViewModel
+import java.io.File
 
 /** 文件管理器屏幕 */
 @Composable
@@ -146,6 +156,54 @@ fun FileManagerScreen(navController: NavController) {
                     currentPath = viewModel.currentPath,
                     onNavigateToPath = { path -> viewModel.navigateToPath(path) }
             )
+            
+            // 快速访问栏
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    QuickAccessChip(
+                        name = "Ubuntu",
+                        icon = Icons.Default.Terminal,
+                        isActive = viewModel.currentPath.startsWith(File(context.filesDir, "usr/var/lib/proot-distro/installed-rootfs/ubuntu").absolutePath),
+                        onClick = {
+                            val ubuntuPath = File(context.filesDir, "usr/var/lib/proot-distro/installed-rootfs/ubuntu").absolutePath
+                            if (File(ubuntuPath).exists()) {
+                                viewModel.navigateToPath(ubuntuPath)
+                            }
+                        }
+                    )
+                }
+                item {
+                    QuickAccessChip(
+                        name = "SDCard",
+                        icon = Icons.Default.SdCard,
+                        isActive = viewModel.currentPath.startsWith(Environment.getExternalStorageDirectory().absolutePath),
+                        onClick = {
+                            val sdcardPath = Environment.getExternalStorageDirectory().absolutePath
+                            if (File(sdcardPath).exists()) {
+                                viewModel.navigateToPath(sdcardPath)
+                            }
+                        }
+                    )
+                }
+                item {
+                    QuickAccessChip(
+                        name = "Workspace",
+                        icon = Icons.Default.Folder,
+                        isActive = viewModel.currentPath.startsWith(File(context.filesDir, "workspace").absolutePath),
+                        onClick = {
+                            val workspacePath = File(context.filesDir, "workspace").absolutePath
+                            if (File(workspacePath).exists()) {
+                                viewModel.navigateToPath(workspacePath)
+                            }
+                        }
+                    )
+                }
+            }
 
             // 主内容区域
             Surface(
@@ -260,5 +318,47 @@ fun FileManagerScreen(navController: NavController) {
                         )
                 toolHandler.executeTool(shareTool)
             }
+    )
+}
+
+/**
+ * 快速访问芯片组件
+ */
+@Composable
+private fun QuickAccessChip(
+    name: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    isActive: Boolean,
+    onClick: () -> Unit
+) {
+    FilterChip(
+        selected = isActive,
+        onClick = onClick,
+        label = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal
+                )
+            }
+        },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = isActive,
+            borderColor = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+        )
     )
 }

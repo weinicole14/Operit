@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalContext
@@ -692,8 +693,8 @@ private fun SettingItem(
             .fillMaxWidth()
             .height(36.dp)
             .padding(horizontal = 12.dp)
-            .semantics(mergeDescendants = true) {
-                contentDescription = "$title, $stateDescription"
+            .semantics {
+                contentDescription = title
             }
             .toggleable(
                 value = isChecked,
@@ -707,7 +708,9 @@ private fun SettingItem(
             imageVector = icon,
             contentDescription = null,
             tint = iconTint,
-            modifier = Modifier.size(16.dp)
+            modifier = Modifier
+                .size(16.dp)
+                .clearAndSetSemantics {}
         )
         // 详情按钮（左侧）
         IconButton(onClick = onInfoClick, modifier = Modifier.size(24.dp)) {
@@ -724,13 +727,18 @@ private fun SettingItem(
             fontSize = 13.sp,
             fontWeight = FontWeight.Normal,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp)
+                .clearAndSetSemantics {}
         )
         // 开关
         Switch(
             checked = isChecked,
             onCheckedChange = null, // 由Row的toggleable处理
-            modifier = Modifier.scale(0.65f),
+            modifier = Modifier
+                .scale(0.65f)
+                .clearAndSetSemantics {},
                 colors =
                         SwitchDefaults.colors(
                 checkedThumbColor = MaterialTheme.colorScheme.primary,
@@ -866,20 +874,29 @@ private fun MemorySelectorItem(
 ) {
     val currentProfile = preferenceProfiles.find { it.id == currentProfileId }
 
+    val currentProfileName = currentProfile?.name ?: stringResource(R.string.not_selected)
+    val expandStateDesc = if (expanded) stringResource(R.string.expanded) else stringResource(R.string.collapsed)
+    val accessibilityDesc = "${stringResource(R.string.memory)}: $currentProfileName, $expandStateDesc"
+    
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
                 modifier =
                         Modifier.fillMaxWidth()
                 .height(36.dp)
+                .semantics {
+                    contentDescription = accessibilityDesc
+                }
                 .clickable { onExpandedChange(!expanded) }
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = Icons.Outlined.Portrait,
-                contentDescription = stringResource(R.string.memory_selection),
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier
+                    .size(16.dp)
+                    .clearAndSetSemantics {}
             )
             // 详情按钮（左侧）
             IconButton(onClick = onInfoClick, modifier = Modifier.size(24.dp)) {
@@ -899,6 +916,7 @@ private fun MemorySelectorItem(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Normal,
                     color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.clearAndSetSemantics {}
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
@@ -907,14 +925,15 @@ private fun MemorySelectorItem(
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clearAndSetSemantics {}
                 )
             }
             Icon(
                     imageVector =
                             if (expanded) Icons.Filled.KeyboardArrowUp
                             else Icons.Filled.KeyboardArrowDown,
-                contentDescription = if (expanded) stringResource(R.string.collapse_verb) else stringResource(R.string.expand_verb),
+                contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
@@ -990,20 +1009,32 @@ private fun ModelSelectorItem(
     val currentConfig = configSummaries.find { it.id == currentConfigMapping.configId }
     var expandedConfigId by remember { mutableStateOf<String?>(null) } // 用于记录当前展开的配置的模型列表
 
+    val currentModelName = currentConfig?.let { config ->
+        val validIndex = getValidModelIndex(config.modelName, currentConfigMapping.modelIndex)
+        getModelByIndex(config.modelName, validIndex)
+    } ?: stringResource(R.string.not_selected)
+    val expandStateDesc = if (expanded) stringResource(R.string.expanded) else stringResource(R.string.collapsed)
+    val accessibilityDesc = "${stringResource(R.string.model)}: $currentModelName, $expandStateDesc"
+    
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
                 modifier =
                         Modifier.fillMaxWidth()
                 .height(36.dp)
+                .semantics {
+                    contentDescription = accessibilityDesc
+                }
                 .clickable { onExpandedChange(!expanded) }
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = Icons.Outlined.DataObject,
-                contentDescription = stringResource(R.string.model_selection),
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier
+                    .size(16.dp)
+                    .clearAndSetSemantics {}
             )
             // 详情按钮（左侧）
             IconButton(onClick = onInfoClick, modifier = Modifier.size(24.dp)) {
@@ -1023,6 +1054,7 @@ private fun ModelSelectorItem(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Normal,
                     color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.clearAndSetSemantics {}
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 // 只显示选中的模型名称
@@ -1036,7 +1068,9 @@ private fun ModelSelectorItem(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f, fill = false)
+                        modifier = Modifier
+                            .weight(1f, fill = false)
+                            .clearAndSetSemantics {}
                     )
                 } ?: Text(
                     text = stringResource(R.string.not_selected),
@@ -1044,12 +1078,13 @@ private fun ModelSelectorItem(
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clearAndSetSemantics {}
                 )
             }
             Icon(
                 imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                contentDescription = if (expanded) stringResource(R.string.collapse_verb) else stringResource(R.string.expand_verb),
+                contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
@@ -1213,17 +1248,30 @@ private fun PromptSelectorItem(
     onInfoClick: () -> Unit
 ) {
     val currentProfile = promptProfiles.find { it.id == currentProfileId }
+    
+    val currentProfileName = currentProfile?.name ?: stringResource(R.string.not_selected)
+    val expandStateDesc = if (expanded) stringResource(R.string.expanded) else stringResource(R.string.collapsed)
+    val accessibilityDesc = "${stringResource(R.string.prompt)}: $currentProfileName, $expandStateDesc"
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth().height(36.dp).clickable { onExpandedChange(!expanded) }.padding(horizontal = 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .semantics {
+                    contentDescription = accessibilityDesc
+                }
+                .clickable { onExpandedChange(!expanded) }
+                .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = Icons.Outlined.Message,
-                contentDescription = stringResource(R.string.prompt_selection),
+                contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier
+                    .size(16.dp)
+                    .clearAndSetSemantics {}
             )
             // 详情按钮（左侧）
             IconButton(onClick = onInfoClick, modifier = Modifier.size(24.dp)) {
@@ -1243,6 +1291,7 @@ private fun PromptSelectorItem(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Normal,
                     color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.clearAndSetSemantics {}
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
@@ -1251,13 +1300,16 @@ private fun PromptSelectorItem(
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clearAndSetSemantics {}
                 )
             }
             Icon(
                 imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                contentDescription = if (expanded) stringResource(R.string.collapse_verb) else stringResource(R.string.expand_verb),
-                modifier = Modifier.size(20.dp),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(20.dp)
+                    .clearAndSetSemantics {},
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
             )
         }
@@ -1339,7 +1391,7 @@ private fun ActionSettingItem(
                                 RoundedCornerShape(8.dp)
                         )
                         .clip(RoundedCornerShape(8.dp))
-                        .semantics(mergeDescendants = true) {
+                        .semantics {
                             contentDescription = title
                         }
                         .clickable(
@@ -1350,7 +1402,14 @@ private fun ActionSettingItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 图标
-        Icon(imageVector = icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(16.dp))
+        Icon(
+            imageVector = icon, 
+            contentDescription = null, 
+            tint = iconTint, 
+            modifier = Modifier
+                .size(16.dp)
+                .clearAndSetSemantics {}
+        )
         // 详情按钮（左侧）
         IconButton(onClick = onInfoClick, modifier = Modifier.size(24.dp)) {
             Icon(
@@ -1366,7 +1425,10 @@ private fun ActionSettingItem(
             fontSize = 13.sp,
             fontWeight = FontWeight.Normal,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(1f).padding(horizontal = 8.dp)
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp)
+                .clearAndSetSemantics {}
         )
     }
 }

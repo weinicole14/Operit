@@ -1,6 +1,7 @@
 package com.ai.assistance.operit.ui.features.chat.webview.workspace
 
 import android.annotation.SuppressLint
+import android.os.Environment
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -8,6 +9,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,6 +54,13 @@ data class OpenFileInfo(
         val name: String = File(path).name
 )
 
+// 快速路径条目
+data class QuickPathEntry(
+        val name: String,
+        val path: String,
+        val icon: androidx.compose.ui.graphics.vector.ImageVector
+)
+
 /** 文件浏览器组件 - VSCode风格 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,6 +84,27 @@ fun FileBrowser(
     // 排序方式：0=名称, 1=大小, 2=修改时间
     var sortMode by remember { mutableStateOf(0) }
     var showSortMenu by remember { mutableStateOf(false) }
+    
+    // 快速路径定义
+    val quickPaths = remember {
+        listOf(
+            QuickPathEntry(
+                name = "Ubuntu",
+                path = File(context.filesDir, "usr/var/lib/proot-distro/installed-rootfs/ubuntu").absolutePath,
+                icon = Icons.Default.Terminal
+            ),
+            QuickPathEntry(
+                name = "SDCard",
+                path = Environment.getExternalStorageDirectory().absolutePath,
+                icon = Icons.Default.SdCard
+            ),
+            QuickPathEntry(
+                name = "Workspace",
+                path = File(context.filesDir, "workspace").absolutePath,
+                icon = Icons.Default.Folder
+            )
+        )
+    }
 
     fun loadDirectory(path: String) {
         if (isLoading) return // 防止并发加载
@@ -316,6 +346,28 @@ fun FileBrowser(
                     }
                 }
             }
+            
+            // 快速路径栏
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(quickPaths) { quickPath ->
+                    QuickPathChip(
+                        entry = quickPath,
+                        isActive = currentPath.startsWith(quickPath.path),
+                        onClick = {
+                            // 检查路径是否存在
+                            val pathFile = File(quickPath.path)
+                            if (pathFile.exists() && pathFile.isDirectory) {
+                                loadDirectory(quickPath.path)
+                            }
+                        }
+                    )
+                }
+            }
 
             // 文件列表
             if (isLoading) {
@@ -418,6 +470,44 @@ fun FileBrowser(
             }
         }
     }
+}
+
+/** 快速路径芯片组件 */
+@Composable
+private fun QuickPathChip(
+    entry: QuickPathEntry,
+    isActive: Boolean,
+    onClick: () -> Unit
+) {
+    FilterChip(
+        selected = isActive,
+        onClick = onClick,
+        label = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Icon(
+                    imageVector = entry.icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = entry.name,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ),
+        border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = isActive,
+            borderColor = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+        )
+    )
 }
 
 /** 抽取出的文件列表项，实现紧凑布局和长按手势 */

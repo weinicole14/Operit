@@ -16,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -43,6 +45,27 @@ class CustomXmlRenderer(
     override fun RenderXmlContent(xmlContent: String, modifier: Modifier, textColor: Color) {
         val trimmedContent = xmlContent.trim()
         val tagName = extractTagName(trimmedContent)
+        
+        // 无障碍朗读描述：只朗读块类型
+        val accessibilityDesc = when (tagName) {
+            "tool" -> stringResource(R.string.tool_call_block)
+            "tool_result" -> stringResource(R.string.tool_result_block)
+            "think", "thinking" -> stringResource(R.string.thinking_process_block)
+            "search" -> stringResource(R.string.search_content_block)
+            "status" -> stringResource(R.string.status_info_block)
+            "html" -> stringResource(R.string.html_content_block)
+            "mood" -> stringResource(R.string.mood_tag_block)
+            else -> stringResource(R.string.tool_call_block)
+        }
+        
+        // 用 Box 包裹所有内容，添加无障碍描述
+        Box(modifier = modifier.semantics { contentDescription = accessibilityDesc }) {
+            RenderXmlContentInternal(trimmedContent, tagName, textColor)
+        }
+    }
+    
+    @Composable
+    private fun RenderXmlContentInternal(trimmedContent: String, tagName: String?, textColor: Color) {
 
         // 根据设置决定是否渲染 think 和 thinking 标签
         if ((tagName == "think" || tagName == "thinking") && !showThinkingProcess) {
@@ -62,7 +85,7 @@ class CustomXmlRenderer(
 
         // 如果无法识别为有效的XML标签，则交由默认渲染器处理
         if (tagName == null) {
-            fallback.RenderXmlContent(xmlContent, modifier, textColor)
+            fallback.RenderXmlContent(trimmedContent, Modifier, textColor)
             return
         }
 
@@ -73,22 +96,22 @@ class CustomXmlRenderer(
                 return
             } else if (!(tagName in builtInTags)) {
                 // 是未知标签且未闭合，则交由默认渲染器处理
-                fallback.RenderXmlContent(xmlContent, modifier, textColor)
+                fallback.RenderXmlContent(trimmedContent, Modifier, textColor)
                 return
             }
         }
 
         // 标签已正确闭合，根据标签名分发到对应的渲染函数
         when (tagName) {
-            "think" -> renderThinkContent(trimmedContent, modifier, textColor)
-            "thinking" -> renderThinkContent(trimmedContent, modifier, textColor)
-            "search" -> renderSearchContent(trimmedContent, modifier, textColor)
-            "tool" -> renderToolRequest(trimmedContent, modifier, textColor)
-            "tool_result" -> renderToolResult(trimmedContent, modifier, textColor)
-            "status" -> renderStatus(trimmedContent, modifier, textColor)
-            "html" -> renderHtmlContent(trimmedContent, modifier, textColor)
-            "mood" -> renderMoodTag(trimmedContent, modifier, textColor)
-            else -> fallback.RenderXmlContent(xmlContent, modifier, textColor)
+            "think" -> renderThinkContent(trimmedContent, Modifier, textColor)
+            "thinking" -> renderThinkContent(trimmedContent, Modifier, textColor)
+            "search" -> renderSearchContent(trimmedContent, Modifier, textColor)
+            "tool" -> renderToolRequest(trimmedContent, Modifier, textColor)
+            "tool_result" -> renderToolResult(trimmedContent, Modifier, textColor)
+            "status" -> renderStatus(trimmedContent, Modifier, textColor)
+            "html" -> renderHtmlContent(trimmedContent, Modifier, textColor)
+            "mood" -> renderMoodTag(trimmedContent, Modifier, textColor)
+            else -> fallback.RenderXmlContent(trimmedContent, Modifier, textColor)
         }
     }
 

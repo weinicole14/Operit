@@ -15,6 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.ai.assistance.operit.R
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -79,8 +83,18 @@ fun EnhancedCodeBlock(code: String, language: String = "", modifier: Modifier = 
     // 缓存已计算过的行，避免重复创建
     val lineCache = remember { mutableMapOf<String, AnnotatedString>() }
 
+    // 无障碍朗读描述：只朗读块类型
+    val accessibilityDesc = if (language.isNotEmpty()) {
+        "$language ${stringResource(R.string.code_block)}"
+    } else {
+        stringResource(R.string.code_block)
+    }
+
     Surface(
-            modifier = modifier.fillMaxWidth().padding(vertical = 2.dp),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 2.dp)
+                .semantics { contentDescription = accessibilityDesc },
             color = codeBlockBackground,
             shape = RoundedCornerShape(4.dp)
     ) {

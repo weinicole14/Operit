@@ -34,7 +34,7 @@ fun WorkspaceSetup(chatId: String, onBindWorkspace: (String) -> Unit) {
 
     if (showFileBrowser) {
         FileBrowser(
-            initialPath = "/sdcard/Download/", // 默认下载目录
+            initialPath = context.filesDir.absolutePath, // 默认应用内部目录
             onBindWorkspace = onBindWorkspace,
             onCancel = { showFileBrowser = false }
         )

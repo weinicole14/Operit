@@ -56,6 +56,15 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 
+/**
+ * 无绑定工作区信息
+ */
+data class UnboundWorkspaceInfo(
+    val name: String,
+    val fullPath: String,
+    val location: String // "内部存储" 或 "外部存储"
+)
+
 @Composable
 fun ChatHistorySettingsScreen() {
     val context = LocalContext.current
@@ -96,33 +105,53 @@ fun ChatHistorySettingsScreen() {
     }
     
     // 获取无绑定的工作区文件夹
-    var unboundWorkspaces by remember { mutableStateOf<List<String>>(emptyList()) }
+    var unboundWorkspaces by remember { mutableStateOf<List<UnboundWorkspaceInfo>>(emptyList()) }
     LaunchedEffect(chatHistories) {
         scope.launch {
             try {
-                val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val workspaceBaseDir = File(downloadDir, "Operit/workspace")
+                val result = mutableListOf<UnboundWorkspaceInfo>()
                 
-                if (workspaceBaseDir.exists() && workspaceBaseDir.isDirectory) {
-                    // 获取所有工作区文件夹
-                    val allWorkspaceDirs = workspaceBaseDir.listFiles { file ->
-                        file.isDirectory
-                    }?.map { it.name } ?: emptyList()
-                    
-                    // 获取已绑定的工作区（从workspace字段提取chatId）
-                    val boundWorkspaces = chatHistories
-                        .mapNotNull { it.workspace }
-                        .mapNotNull { path ->
-                            // 从路径中提取chatId: /sdcard/Download/Operit/workspace/{chatId}
-                            File(path).name
+                // 获取已绑定的工作区路径集合
+                val boundWorkspacePaths = chatHistories
+                    .mapNotNull { it.workspace }
+                    .toSet()
+                
+                // 1. 检查内部存储工作区 (/data/data/files/workspace)
+                val internalWorkspaceDir = File(context.filesDir, "workspace")
+                if (internalWorkspaceDir.exists() && internalWorkspaceDir.isDirectory) {
+                    internalWorkspaceDir.listFiles { file -> file.isDirectory }?.forEach { dir ->
+                        val fullPath = dir.absolutePath
+                        if (fullPath !in boundWorkspacePaths) {
+                            result.add(
+                                UnboundWorkspaceInfo(
+                                    name = dir.name,
+                                    fullPath = fullPath,
+                                    location = "内部存储"
+                                )
+                            )
                         }
-                        .toSet()
-                    
-                    // 找出无绑定的工作区
-                    unboundWorkspaces = allWorkspaceDirs.filter { it !in boundWorkspaces }
-                } else {
-                    unboundWorkspaces = emptyList()
+                    }
                 }
+                
+                // 2. 检查外部存储工作区（旧位置）
+                val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val externalWorkspaceDir = File(downloadDir, "Operit/workspace")
+                if (externalWorkspaceDir.exists() && externalWorkspaceDir.isDirectory) {
+                    externalWorkspaceDir.listFiles { file -> file.isDirectory }?.forEach { dir ->
+                        val fullPath = dir.absolutePath
+                        if (fullPath !in boundWorkspacePaths) {
+                            result.add(
+                                UnboundWorkspaceInfo(
+                                    name = dir.name,
+                                    fullPath = fullPath,
+                                    location = "外部存储"
+                                )
+                            )
+                        }
+                    }
+                }
+                
+                unboundWorkspaces = result
             } catch (e: Exception) {
                 Log.e("ChatHistorySettings", "获取无绑定工作区失败", e)
                 unboundWorkspaces = emptyList()
@@ -242,26 +271,21 @@ fun ChatHistorySettingsScreen() {
             item {
                 UnboundWorkspaceCard(
                     unboundWorkspaces = unboundWorkspaces,
-                    onDelete = { selectedWorkspaces ->
+                    onDelete = { selectedWorkspacePaths ->
                         scope.launch {
                             try {
-                                val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                                val workspaceBaseDir = File(downloadDir, "Operit/workspace")
-                                
                                 var deletedCount = 0
-                                selectedWorkspaces.forEach { workspaceName ->
-                                    val workspaceDir = File(workspaceBaseDir, workspaceName)
-                                    if (workspaceDir.exists() && workspaceDir.isDirectory) {
-                                        if (workspaceDir.deleteRecursively()) {
-                                            deletedCount++
-                                        }
+                                selectedWorkspacePaths.forEach { workspacePath ->
+                                    val workspaceDir = File(workspacePath)
+                                    if (workspaceDir.exists() && workspaceDir.deleteRecursively()) {
+                                        deletedCount++
                                     }
                                 }
                                 
                                 Toast.makeText(context, context.getString(R.string.deleted_unbound_workspaces, deletedCount), Toast.LENGTH_SHORT).show()
                                 
                                 // 刷新列表
-                                unboundWorkspaces = unboundWorkspaces.filter { it !in selectedWorkspaces }
+                                unboundWorkspaces = unboundWorkspaces.filter { it.fullPath !in selectedWorkspacePaths }
                             } catch (e: Exception) {
                                 Log.e("ChatHistorySettings", "删除工作区失败", e)
                                 Toast.makeText(context, context.getString(R.string.delete_failed, e.localizedMessage ?: ""), Toast.LENGTH_LONG).show()
@@ -991,7 +1015,7 @@ private fun SectionHeader(
  */
 @Composable
 private fun UnboundWorkspaceCard(
-    unboundWorkspaces: List<String>,
+    unboundWorkspaces: List<UnboundWorkspaceInfo>,
     onDelete: (Set<String>) -> Unit
 ) {
     val context = LocalContext.current
@@ -1029,7 +1053,7 @@ private fun UnboundWorkspaceCard(
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TextButton(
-                            onClick = { selectedWorkspaces = unboundWorkspaces.toSet() },
+                            onClick = { selectedWorkspaces = unboundWorkspaces.map { it.fullPath }.toSet() },
                             enabled = unboundWorkspaces.isNotEmpty()
                         ) {
                             Text(context.getString(R.string.select_all_current_list))
@@ -1051,15 +1075,15 @@ private fun UnboundWorkspaceCard(
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                 ) {
-                    itemsIndexed(unboundWorkspaces, key = { _, workspace -> workspace }) { index, workspace ->
+                    itemsIndexed(unboundWorkspaces, key = { _, workspace -> workspace.fullPath }) { index, workspace ->
                         UnboundWorkspaceRow(
-                            workspaceName = workspace,
-                            selected = selectedWorkspaces.contains(workspace),
+                            workspaceInfo = workspace,
+                            selected = selectedWorkspaces.contains(workspace.fullPath),
                             onSelectionChange = { selected ->
                                 selectedWorkspaces = if (selected) {
-                                    selectedWorkspaces + workspace
+                                    selectedWorkspaces + workspace.fullPath
                                 } else {
-                                    selectedWorkspaces - workspace
+                                    selectedWorkspaces - workspace.fullPath
                                 }
                             }
                         )
@@ -1123,7 +1147,7 @@ private fun UnboundWorkspaceCard(
  */
 @Composable
 private fun UnboundWorkspaceRow(
-    workspaceName: String,
+    workspaceInfo: UnboundWorkspaceInfo,
     selected: Boolean,
     onSelectionChange: (Boolean) -> Unit
 ) {
@@ -1142,19 +1166,35 @@ private fun UnboundWorkspaceRow(
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = workspaceName,
+                text = workspaceInfo.name,
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                text = context.getString(R.string.not_used_by_any_chat),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = workspaceInfo.location,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "•",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = context.getString(R.string.not_used_by_any_chat),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
         Icon(
-            imageVector = Icons.Default.Folder,
+            imageVector = if (workspaceInfo.location == "内部存储") Icons.Default.Folder else Icons.Default.FolderOpen,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(24.dp)

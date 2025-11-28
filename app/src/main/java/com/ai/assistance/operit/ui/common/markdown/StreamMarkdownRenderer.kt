@@ -28,14 +28,18 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.snapshots.SnapshotStateMap
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import com.ai.assistance.operit.R
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
@@ -91,8 +95,13 @@ interface XmlContentRenderer {
 class DefaultXmlRenderer : XmlContentRenderer {
     @Composable
     override fun RenderXmlContent(xmlContent: String, modifier: Modifier, textColor: Color) {
+        val xmlBlockDesc = stringResource(R.string.xml_block)
+        
         Surface(
-                modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
+                modifier = modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .semantics { contentDescription = xmlBlockDesc },
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.1f),
                 shape = RoundedCornerShape(4.dp)
         ) {

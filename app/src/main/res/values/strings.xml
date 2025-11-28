@@ -3409,4 +3409,22 @@
     <string name="delete_selected_workspaces">删除选中的工作区 (%1$d)</string>
     <string name="delete_workspaces_confirmation">确定要删除选中的 %1$d 个工作区吗？\n\n删除后将无法恢复所有文件和数据。</string>
     <string name="not_used_by_any_chat">未被任何对话使用</string>
+    
+    <!-- 无障碍朗读 - Markdown 块类型 -->
+    <string name="code_block">代码块</string>
+    <string name="table_block">表格</string>
+    <string name="plan_execution_graph">计划执行图</string>
+    <string name="image_block">图片</string>
+    <string name="image_load_failed">图片加载失败</string>
+    <string name="save_image">保存图片</string>
+    <string name="image_saved">图片已保存到相册</string>
+    <string name="save_failed">保存失败</string>
+    <string name="xml_block">xml块</string>
+    <string name="tool_call_block">工具调用</string>
+    <string name="tool_result_block">工具结果</string>
+    <string name="thinking_process_block">思考过程</string>
+    <string name="search_content_block">搜索内容</string>
+    <string name="status_info_block">状态信息</string>
+    <string name="html_content_block">HTML内容</string>
+    <string name="mood_tag_block">情绪标签</string>
 </resources>
