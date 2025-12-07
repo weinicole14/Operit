@@ -136,18 +136,7 @@ class WorkspaceBackupManager(private val context: Context) {
         Log.d(TAG, "Attempting to restore workspace to timestamp: $targetTimestamp")
 
         val targetManifest = if (targetTimestamp != null) {
-            val manifestFile = File(backupDir, "$targetTimestamp.json")
-            if (manifestFile.exists()) {
-                try {
-                    json.decodeFromString<BackupManifest>(manifestFile.readText())
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to read target manifest for timestamp $targetTimestamp", e)
-                    null
-                }
-            } else {
-                Log.w(TAG, "Target manifest file not found for timestamp $targetTimestamp")
-                null
-            }
+            loadBackupManifest(backupDir, targetTimestamp)
         } else {
             // If no target timestamp, we are restoring to an empty state.
             null
@@ -161,15 +150,8 @@ class WorkspaceBackupManager(private val context: Context) {
         // 1. Delete files from workspace that are not in the target manifest
         // Safety: Only delete text-based files that were previously tracked, preserve untracked binary files
         Log.d(TAG, "Step 1: Deleting tracked files not present in the target manifest...")
-        workspaceDir.walkTopDown()
-            .onEnter { dir -> dir.name != BACKUP_DIR_NAME }
-            .filter { it.isFile }
+        workspaceFilesSequence(workspaceDir, gitignoreRules)
             .forEach { currentFile ->
-                // Only consider workspace files (text-based, not ignored by .gitignore / default excludes)
-                if (!FileUtils.isWorkspaceFile(currentFile, workspaceDir, gitignoreRules)) {
-                    return@forEach
-                }
-
                 val relativePath = currentFile.relativeTo(workspaceDir).path
                 if (relativePath !in manifestRelativePaths) {
                     Log.i(TAG, "Deleting tracked text file not in manifest: $relativePath")
@@ -218,6 +200,27 @@ class WorkspaceBackupManager(private val context: Context) {
             }
 
         Log.i(TAG, "Workspace restored to state of timestamp $targetTimestamp")
+    }
+
+    private fun loadBackupManifest(backupDir: File, targetTimestamp: Long): BackupManifest? {
+        val manifestFile = File(backupDir, "$targetTimestamp.json")
+        return if (manifestFile.exists()) {
+            try {
+                json.decodeFromString<BackupManifest>(manifestFile.readText())
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to read target manifest for timestamp $targetTimestamp", e)
+                null
+            }
+        } else {
+            Log.w(TAG, "Target manifest file not found for timestamp $targetTimestamp")
+            null
+        }
+    }
+
+    private fun workspaceFilesSequence(workspaceDir: File, gitignoreRules: List<String>): Sequence<File> {
+        return workspaceDir.walkTopDown()
+            .onEnter { dir -> dir.name != BACKUP_DIR_NAME }
+            .filter { it.isFile && FileUtils.isWorkspaceFile(it, workspaceDir, gitignoreRules) }
     }
 
     private fun getFileHash(file: File): String {
@@ -291,20 +294,10 @@ class WorkspaceBackupManager(private val context: Context) {
 
         val backupDir = File(workspaceDir, BACKUP_DIR_NAME)
         val objectsDir = File(backupDir, OBJECTS_DIR_NAME)
+        val gitignoreRules = GitIgnoreFilter.loadRules(workspaceDir)
 
         val targetManifest = if (targetTimestamp != null) {
-            val manifestFile = File(backupDir, "$targetTimestamp.json")
-            if (manifestFile.exists()) {
-                try {
-                    json.decodeFromString<BackupManifest>(manifestFile.readText())
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to read target manifest for timestamp $targetTimestamp", e)
-                    null
-                }
-            } else {
-                Log.w(TAG, "Target manifest file not found for timestamp $targetTimestamp")
-                null
-            }
+            loadBackupManifest(backupDir, targetTimestamp)
         } else {
             // If no target timestamp, we are restoring to an empty state.
             null
@@ -315,13 +308,12 @@ class WorkspaceBackupManager(private val context: Context) {
 
         val changes = mutableListOf<WorkspaceFileChange>()
 
-        workspaceDir.walkTopDown()
-            .onEnter { dir -> dir.name != BACKUP_DIR_NAME }
-            .filter { it.isFile }
+        workspaceFilesSequence(workspaceDir, gitignoreRules)
             .forEach { currentFile ->
                 val relativePath = currentFile.relativeTo(workspaceDir).path
                 if (relativePath !in manifestRelativePaths) {
                     changes.add(WorkspaceFileChange(relativePath, ChangeType.DELETED, countLinesSafely(currentFile)))
+
                 } else {
                     val objectFile = File(objectsDir, manifestFiles[relativePath])
                     if (objectFile.exists()) {

@@ -79,9 +79,15 @@ fun WorkspaceManager(
     val coroutineScope = rememberCoroutineScope()
     val toolHandler = remember { AIToolHandler.getInstance(context) }
     
-    // 读取工作区配置
-    val workspaceConfig = remember(workspacePath) { 
-        WorkspaceConfigReader.readConfig(workspacePath) 
+    // 读取工作区配置：在重新进入预览界面时从磁盘刷新
+    var workspaceConfig by remember(workspacePath) {
+        mutableStateOf(WorkspaceConfigReader.readConfig(workspacePath))
+    }
+
+    LaunchedEffect(isVisible, workspacePath) {
+        if (isVisible) {
+            workspaceConfig = WorkspaceConfigReader.readConfig(workspacePath)
+        }
     }
 
     // 将 webViewHandler 和 webView 实例提升到 remember 中，使其在重组中保持稳定
