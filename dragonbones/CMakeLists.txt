@@ -39,4 +39,7 @@ target_link_libraries(
     ${log-lib}
     ${GLESv2-lib}
     ${android-lib}
-) 
+)
+
+# 添加 16KB 页面大小支持（Android 15+ 要求）
+target_link_options(dragonbones_native PRIVATE "-Wl,-z,max-page-size=16384") 
