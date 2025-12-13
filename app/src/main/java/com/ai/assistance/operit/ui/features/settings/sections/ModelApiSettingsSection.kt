@@ -72,6 +72,7 @@ fun ModelApiSettingsSection(
     fun getDefaultModelName(providerType: ApiProviderType): String {
         return when (providerType) {
             ApiProviderType.OPENAI -> "gpt-4o"
+            ApiProviderType.OPENAI_GENERIC -> ""
             ApiProviderType.ANTHROPIC -> "claude-3-opus-20240229"
             ApiProviderType.GOOGLE -> "gemini-2.0-flash"
             ApiProviderType.GEMINI_GENERIC -> "gemini-2.0-flash"
@@ -123,7 +124,7 @@ fun ModelApiSettingsSection(
     var enableDeepseekReasoningInput by remember(config.id) { mutableStateOf(config.enableDeepseekReasoning) }
 
     // 保存设置的通用函数
-    val saveSettings = {
+    val saveSettings: () -> Unit = {
         scope.launch {
             // 允许用户自定义模型名称，即使使用默认API密钥
             val modelToSave = modelNameInput
@@ -210,6 +211,7 @@ fun ModelApiSettingsSection(
             ApiProviderType.LMSTUDIO -> "http://localhost:1234/v1/chat/completions"
             ApiProviderType.MNN -> "" // MNN本地推理不需要endpoint
             ApiProviderType.PPINFRA -> "https://api.ppinfra.com/openai/v1/chat/completions"
+            ApiProviderType.OPENAI_GENERIC -> ""
             ApiProviderType.OTHER -> ""
         }
     }
@@ -222,7 +224,7 @@ fun ModelApiSettingsSection(
     // 当API提供商改变时更新端点
     LaunchedEffect(selectedApiProvider) {
         AppLogger.d("ModelApiSettingsSection", "API提供商改变")
-        if (selectedApiProvider == ApiProviderType.OPENAI || selectedApiProvider == ApiProviderType.GOOGLE
+        if (selectedApiProvider == ApiProviderType.OPENAI || selectedApiProvider == ApiProviderType.OPENAI_GENERIC || selectedApiProvider == ApiProviderType.GOOGLE
             || selectedApiProvider == ApiProviderType.GEMINI_GENERIC
             || selectedApiProvider == ApiProviderType.ANTHROPIC || selectedApiProvider == ApiProviderType.MISTRAL) {
             val inChina = LocationUtils.isDeviceInMainlandChina(context)
@@ -295,8 +297,9 @@ fun ModelApiSettingsSection(
                 SettingsInfoBanner(text = stringResource(R.string.overseas_provider_warning))
             }
 
-            // 仅 OpenAI通用(OTHER) 和 Gemini通用(GEMINI_GENERIC) 允许自定义端点
+            // 仅 OpenAI通用(OPENAI_GENERIC)、其他供应商(OTHER) 和 Gemini通用(GEMINI_GENERIC) 允许自定义端点
             val isGenericProvider =
+                selectedApiProvider == ApiProviderType.OPENAI_GENERIC ||
                 selectedApiProvider == ApiProviderType.OTHER ||
                 selectedApiProvider == ApiProviderType.GEMINI_GENERIC
 
@@ -848,6 +851,7 @@ fun ModelApiSettingsSection(
 private fun getProviderDisplayName(provider: ApiProviderType, context: android.content.Context): String {
     return when (provider) {
         ApiProviderType.OPENAI -> context.getString(R.string.provider_openai)
+        ApiProviderType.OPENAI_GENERIC -> context.getString(R.string.provider_openai_generic)
         ApiProviderType.ANTHROPIC -> context.getString(R.string.provider_anthropic)
         ApiProviderType.GOOGLE -> context.getString(R.string.provider_google)
         ApiProviderType.GEMINI_GENERIC -> context.getString(R.string.provider_gemini_generic)
@@ -1373,6 +1377,7 @@ private fun ApiProviderDialog(
 private fun getProviderColor(provider: ApiProviderType): androidx.compose.ui.graphics.Color {
     return when (provider) {
         ApiProviderType.OPENAI -> MaterialTheme.colorScheme.primary
+        ApiProviderType.OPENAI_GENERIC -> MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
         ApiProviderType.ANTHROPIC -> MaterialTheme.colorScheme.tertiary
         ApiProviderType.GOOGLE -> MaterialTheme.colorScheme.secondary
         ApiProviderType.GEMINI_GENERIC -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.9f)

@@ -87,7 +87,8 @@ object AIServiceFactory {
         
         return when (config.apiProviderType) {
             // OpenAI格式，支持原生和兼容OpenAI API的服务
-            ApiProviderType.OPENAI -> OpenAIProvider(config.apiEndpoint, apiKeyProvider, config.modelName, httpClient, customHeaders, config.apiProviderType, supportsVision, enableToolCall)
+            ApiProviderType.OPENAI,
+            ApiProviderType.OPENAI_GENERIC -> OpenAIProvider(config.apiEndpoint, apiKeyProvider, config.modelName, httpClient, customHeaders, config.apiProviderType, supportsVision, enableToolCall)
 
             // Claude格式，支持Anthropic Claude系列
             ApiProviderType.ANTHROPIC -> ClaudeProvider(config.apiEndpoint, apiKeyProvider, config.modelName, httpClient, customHeaders, config.apiProviderType, enableToolCall)

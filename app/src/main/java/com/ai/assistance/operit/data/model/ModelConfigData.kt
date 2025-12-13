@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class ApiProviderType {
         OPENAI, // OpenAI (GPT系列)
+        OPENAI_GENERIC, // OpenAI通用（自定义端点）
         ANTHROPIC, // Anthropic (Claude系列)
         GOOGLE, // Google (Gemini系列)
         GEMINI_GENERIC, // Gemini通用（自定义端点）
@@ -25,7 +26,7 @@ enum class ApiProviderType {
         LMSTUDIO, // LM Studio本地模型服务
         MNN, // MNN本地推理引擎
         PPINFRA, // 派欧云
-        OTHER // 其他提供商（OpenAI通用，自定义端点）
+        OTHER // 其他提供商（自定义端点）
 }
 
 object ModelConfigDefaults {

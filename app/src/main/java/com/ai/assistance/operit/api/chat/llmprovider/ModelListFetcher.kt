@@ -43,7 +43,8 @@ object ModelListFetcher {
 
         val modelsUrl =
                 when (apiProviderType) {
-                    ApiProviderType.OPENAI -> "${extractBaseUrl(apiEndpoint)}/v1/models"
+                    ApiProviderType.OPENAI,
+                    ApiProviderType.OPENAI_GENERIC -> "${extractBaseUrl(apiEndpoint)}/v1/models"
                     ApiProviderType.ANTHROPIC -> "${extractBaseUrl(apiEndpoint)}/v1/models"
                     ApiProviderType.GOOGLE,
                     ApiProviderType.GEMINI_GENERIC -> {
@@ -212,6 +213,7 @@ object ModelListFetcher {
                             try {
                                 when (apiProviderType) {
                                     ApiProviderType.OPENAI,
+                                    ApiProviderType.OPENAI_GENERIC,
                                     ApiProviderType.DEEPSEEK,
                                     ApiProviderType.MOONSHOT,
                                     ApiProviderType.SILICONFLOW,
