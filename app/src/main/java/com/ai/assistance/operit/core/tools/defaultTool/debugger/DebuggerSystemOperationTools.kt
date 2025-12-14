@@ -282,7 +282,9 @@ open class DebuggerSystemOperationTools(context: Context) :
         return try {
             val command =
                 if (activity.isBlank()) {
-                    "monkey -p $packageName -c android.intent.category.LAUNCHER 1"
+                    // 使用 am start 命令而不是 monkey，避免修改系统设置（如屏幕旋转）
+                    // 通过 Intent 启动应用的主 Activity，让系统自动找到合适的启动器
+                    "am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER $packageName"
                 } else {
                     "am start -n $packageName/$activity"
                 }
