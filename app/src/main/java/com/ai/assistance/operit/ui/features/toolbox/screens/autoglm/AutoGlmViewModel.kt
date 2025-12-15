@@ -38,14 +38,6 @@ class AutoGlmViewModel(private val context: Context) : ViewModel() {
     private val _uiState = MutableStateFlow(AutoGlmUiState())
     val uiState: StateFlow<AutoGlmUiState> = _uiState.asStateFlow()
 
-    private val dummyToolImplementations = object : ToolImplementations {
-        override suspend fun tap(tool: AITool): ToolResult = ToolResult(tool.name, false, StringResultData(""), "Not implemented in this context")
-        override suspend fun longPress(tool: AITool): ToolResult = ToolResult(tool.name, false, StringResultData(""), "Not implemented in this context")
-        override suspend fun setInputText(tool: AITool): ToolResult = ToolResult(tool.name, false, StringResultData(""), "Not implemented in this context")
-        override suspend fun swipe(tool: AITool): ToolResult = ToolResult(tool.name, false, StringResultData(""), "Not implemented in this context")
-        override suspend fun pressKey(tool: AITool): ToolResult = ToolResult(tool.name, false, StringResultData(""), "Not implemented in this context")
-    }
-
     fun executeTask(task: String) {
         if (task.isBlank()) return
 
@@ -63,9 +55,8 @@ class AutoGlmViewModel(private val context: Context) : ViewModel() {
                     context = context,
                     screenWidth = context.resources.displayMetrics.widthPixels,
                     screenHeight = context.resources.displayMetrics.heightPixels,
-                    // Use the real UI tools implementation to ensure Tap/Swipe/PressKey actions are executed.
-                    toolImplementations = uiTools,
-                    screenshotProvider = { uiTools.captureScreenshotForAgent() }
+                    // Use the real UI tools implementation to ensure Tap/Swipe/PressKey/Screenshot actions are executed.
+                    toolImplementations = uiTools
                 )
 
                 val agent = PhoneAgent(

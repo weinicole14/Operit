@@ -182,6 +182,33 @@ private fun AutoGlmOneClickScreen(
         }
     }
 
+    fun restoreOriginalAutomation() {
+        scope.launch {
+            statusMessage = null
+            errorMessage = null
+            isConfiguring = true
+            try {
+                val imported = packageManager.getImportedPackages()
+                if (!imported.contains("Automatic_ui_base")) {
+                    packageManager.importPackage("Automatic_ui_base")
+                }
+                if (packageManager.isPackageImported("Automatic_ui_subagent")) {
+                    packageManager.removePackage("Automatic_ui_subagent")
+                }
+
+                statusMessage = "已恢复为软件原本的自动化逻辑"
+            } catch (e: Exception) {
+                AppLogger.e("AutoGlmOneClick", "Failed to restore base packages", e)
+                errorMessage = context.getString(
+                    R.string.autoglm_status_error,
+                    e.message ?: "unknown"
+                )
+            } finally {
+                isConfiguring = false
+            }
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -231,7 +258,7 @@ private fun AutoGlmOneClickScreen(
 
         Card {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
+                Text( 
                     text = "step2 访问智谱官网，获取 API Key",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
@@ -294,6 +321,30 @@ private fun AutoGlmOneClickScreen(
                     } else {
                         Text(stringResource(R.string.autoglm_one_click_button))
                     }
+                }
+            }
+        }
+
+        Card {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "step4 恢复非 AutoGLM 自动化（可选）",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "如果你觉得在使用 AutoGLM 一键配置后自动化操作变得困难，可以点击下方按钮恢复为软件原本的自动化逻辑（启用 base 包，关闭 subagent 包，其余设置保持不变）。如果你想再次启用 AutoGLM，只需要按照 step3 输入密钥并再次点击一键配置。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = { restoreOriginalAutomation() },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isConfiguring
+                ) {
+                    Text("恢复原本的自动化逻辑")
                 }
             }
         }

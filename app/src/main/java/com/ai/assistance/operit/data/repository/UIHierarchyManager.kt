@@ -454,6 +454,22 @@ object UIHierarchyManager {
     }
 
     /**
+     * 请求远程服务截取屏幕截图。
+     */
+    suspend fun takeScreenshot(context: Context, path: String, format: String): Boolean {
+        if (!ensureBound(context)) {
+            AppLogger.w(TAG, "绑定失败，无法截取屏幕截图")
+            return false
+        }
+        return try {
+            accessibilityProvider?.takeScreenshot(path, format) ?: false
+        } catch (e: RemoteException) {
+            AppLogger.e(TAG, "请求截取屏幕截图失败", e)
+            false
+        }
+    }
+
+    /**
      * 检查远程无障碍服务是否已在系统设置中启用。
      */
     suspend fun isAccessibilityServiceEnabled(context: Context): Boolean {

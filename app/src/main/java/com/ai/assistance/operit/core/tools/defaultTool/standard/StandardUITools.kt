@@ -11,6 +11,7 @@ import com.ai.assistance.operit.core.tools.SimplifiedUINode
 import com.ai.assistance.operit.core.tools.StringResultData
 import com.ai.assistance.operit.core.tools.UIPageResultData
 import com.ai.assistance.operit.core.tools.AppListData
+import com.ai.assistance.operit.core.tools.agent.VirtualDisplayManager
 import com.ai.assistance.operit.core.tools.defaultTool.ToolGetter
 import com.ai.assistance.operit.core.tools.system.AndroidShellExecutor
 import com.ai.assistance.operit.data.model.AITool
@@ -20,6 +21,7 @@ import com.ai.assistance.operit.data.model.ToolResult
 import com.ai.assistance.operit.services.FloatingChatService
 import com.ai.assistance.operit.ui.common.displays.UIOperationOverlay
 import com.ai.assistance.operit.ui.common.displays.UIAutomationProgressOverlay
+import com.ai.assistance.operit.ui.common.displays.VirtualDisplayOverlay
 import com.ai.assistance.operit.util.AppLogger
 import com.ai.assistance.operit.util.ImagePoolManager
 import com.ai.assistance.operit.core.tools.agent.ActionHandler
@@ -383,10 +385,9 @@ open class StandardUITools(protected val context: Context) : ToolImplementations
             val agentConfig = AgentConfig(maxSteps = maxSteps)
             val actionHandler = ActionHandler(
                 context = context,
-                screenWidth = screenWidth, // Initial dimensions, will be updated by provider
+                screenWidth = screenWidth,
                 screenHeight = screenHeight,
-                toolImplementations = this,
-                screenshotProvider = { captureScreenshotForAgent() } // Pass the new provider
+                toolImplementations = this
             )
 
             val agent = PhoneAgent(
@@ -502,7 +503,7 @@ open class StandardUITools(protected val context: Context) : ToolImplementations
         return FunctionalPrompts.UI_AUTOMATION_AGENT_PROMPT.replace("{{current_date}}", formattedDate)
     }
 
-    open suspend fun captureScreenshotForAgent(): Pair<String?, Pair<Int, Int>?> {
+    protected suspend fun captureScreenshotInternal(tool: AITool): Pair<String?, Pair<Int, Int>?> {
         return try {
             // Keep path consistent with automatic_ui_base.* so cleanup logic can be shared.
             val screenshotDir = File("/sdcard/Download/Operit/cleanOnExit")
@@ -510,9 +511,8 @@ open class StandardUITools(protected val context: Context) : ToolImplementations
                 screenshotDir.mkdirs()
             }
 
-            val timestampFormat = SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.getDefault())
-            val fileName = "ui_screenshot_${timestampFormat.format(Date())}.jpg"
-            val file = File(screenshotDir, fileName)
+            val shortName = System.currentTimeMillis().toString().takeLast(4)
+            val file = File(screenshotDir, "$shortName.png")
 
             val floatingService = FloatingChatService.getInstance()
             val progressOverlay = UIAutomationProgressOverlay.getInstance(context)
@@ -524,11 +524,36 @@ open class StandardUITools(protected val context: Context) : ToolImplementations
                 }
                 // Give the system a brief moment to commit the alpha change to the compositor
                 delay(50)
-                val command = "screencap -p ${file.absolutePath}"
-                val result = AndroidShellExecutor.executeShellCommand(command)
-                if (!result.success) {
-                    AppLogger.w(TAG, "captureScreenshotForAgent: screencap failed: ${result.stderr}")
-                    return Pair(null, null)
+                // 优先尝试通过 VirtualDisplayManager 从指定 display 的虚拟屏直接抓帧
+                val explicitDisplay = tool.parameters
+                    .find { it.name.equals("display", ignoreCase = true) }
+                    ?.value
+                    ?.trim()
+
+                val usedVirtual = if (!explicitDisplay.isNullOrEmpty()) {
+                    try {
+                        val manager = VirtualDisplayManager.getInstance(context)
+                        val id = manager.getDisplayId()
+                        if (id != null && id.toString() == explicitDisplay && manager.captureLatestFrameToFile(file)) {
+                            AppLogger.d(TAG, "captureScreenshotForAgent: captured from virtual display $id via ImageReader (explicit display)")
+                            true
+                        } else {
+                            false
+                        }
+                    } catch (e: Exception) {
+                        AppLogger.e(TAG, "captureScreenshotForAgent: error capturing from virtual display", e)
+                        false
+                    }
+                } else {
+                    false
+                }
+
+                if (!usedVirtual) {
+                    val result = AndroidShellExecutor.executeShellCommand("screencap -p ${file.absolutePath}")
+                    if (!result.success) {
+                        AppLogger.w(TAG, "captureScreenshotForAgent: screencap failed: ${result.stderr}")
+                        return Pair(null, null)
+                    }
                 }
 
                 val imageId = ImagePoolManager.addImage(file.absolutePath)
@@ -543,6 +568,11 @@ open class StandardUITools(protected val context: Context) : ToolImplementations
                     } else {
                         null
                     }
+                    try {
+                        VirtualDisplayOverlay.getInstance(context).updatePreview(file.absolutePath)
+                    } catch (e: Exception) {
+                        AppLogger.e(TAG, "captureScreenshotForAgent: error updating virtual display preview", e)
+                    }
                     return Pair("<link type=\"image\" id=\"$imageId\"></link>", dimensions)
                 }
             } finally {
@@ -552,10 +582,13 @@ open class StandardUITools(protected val context: Context) : ToolImplementations
                 }
             }
         } catch (e: Exception) {
-            AppLogger.e(TAG, "captureScreenshotForAgent failed", e)
+            AppLogger.e(TAG, "captureScreenshot failed", e)
             return Pair(null, null)
         }
     }
 
+    override suspend fun captureScreenshot(tool: AITool): Pair<String?, Pair<Int, Int>?> {
+        return captureScreenshotInternal(tool)
+    }
 
 }

@@ -159,6 +159,7 @@ class UserPreferencesManager private constructor(private val context: Context) {
         private val KEY_ON_COLOR_MODE = stringPreferencesKey("on_color_mode")
         private val KEY_CUSTOM_CHAT_TITLE = stringPreferencesKey("custom_chat_title")
         private val KEY_SHOW_INPUT_PROCESSING_STATUS = booleanPreferencesKey("show_input_processing_status")
+        private val KEY_UI_ACCESSIBILITY_MODE = booleanPreferencesKey("ui_accessibility_mode")
 
         // 布局调整设置
         // 注意：全局用户头像和名称设置已移至 DisplayPreferencesManager
@@ -205,6 +206,18 @@ class UserPreferencesManager private constructor(private val context: Context) {
     fun getCurrentLanguage(): String {
         return runBlocking {
             appLanguage.first()
+        }
+    }
+
+    suspend fun saveUiAccessibilityMode(enabled: Boolean) {
+        context.userPreferencesDataStore.edit { preferences ->
+            preferences[KEY_UI_ACCESSIBILITY_MODE] = enabled
+        }
+    }
+
+    fun isUiAccessibilityModeEnabled(): Boolean {
+        return runBlocking {
+            uiAccessibilityMode.first()
         }
     }
 
@@ -422,6 +435,11 @@ class UserPreferencesManager private constructor(private val context: Context) {
     val showInputProcessingStatus: Flow<Boolean> =
         context.userPreferencesDataStore.data.map { preferences ->
             preferences[KEY_SHOW_INPUT_PROCESSING_STATUS] ?: true
+        }
+
+    val uiAccessibilityMode: Flow<Boolean> =
+        context.userPreferencesDataStore.data.map { preferences ->
+            preferences[KEY_UI_ACCESSIBILITY_MODE] ?: false
         }
 
     // 字体设置相关Flow

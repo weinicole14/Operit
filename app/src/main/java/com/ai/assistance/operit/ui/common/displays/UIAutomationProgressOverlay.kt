@@ -50,6 +50,8 @@ import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.ai.assistance.operit.services.ServiceLifecycleOwner
 import com.ai.assistance.operit.util.AppLogger
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * PhoneAgent UI 自动化进度悬浮卡片。
@@ -221,10 +223,31 @@ class UIAutomationProgressOverlay private constructor(private val context: Conte
      * 在截图或实际 UI 操作期间临时隐藏卡片（通过调整 alpha 实现）。
      */
     fun setOverlayAlpha(alpha: Float) {
-        runOnMainThread {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
             overlayView?.let { view ->
                 view.alpha = alpha
                 view.visibility = if (alpha == 0f || progressInfo == null) View.GONE else View.VISIBLE
+            }
+        } else {
+            val latch = CountDownLatch(1)
+            handler.post {
+                try {
+                    overlayView?.let { view ->
+                        view.alpha = alpha
+                        view.visibility = if (alpha == 0f || progressInfo == null) View.GONE else View.VISIBLE
+                    }
+                } catch (e: Exception) {
+                    AppLogger.e(TAG, "Error setting overlay alpha on main thread", e)
+                } finally {
+                    latch.countDown()
+                }
+            }
+
+            try {
+                latch.await(200, TimeUnit.MILLISECONDS)
+            } catch (e: InterruptedException) {
+                AppLogger.e(TAG, "setOverlayAlpha interrupted", e)
+                Thread.currentThread().interrupt()
             }
         }
     }

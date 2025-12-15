@@ -3446,6 +3446,8 @@
     <string name="keep_screen_on">屏幕常亮</string>
     <string name="keep_screen_on_description">保持屏幕常亮，防止在对话时自动锁屏</string>
     <string name="reset_all_display_settings">重置所有显示设置</string>
+    <string name="ui_accessibility_mode">无障碍适配模式</string>
+    <string name="ui_accessibility_mode_description">为 TalkBack 等无障碍用户优化 UI 自动化行为，优先给出可朗读的操作步骤，谨慎执行自动点击。</string>
     
     <!-- Chat History Management -->
     <string name="default_profile_name">默认配置</string>

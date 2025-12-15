@@ -48,6 +48,7 @@ fun GlobalDisplaySettingsScreen(
     val keepScreenOn by apiPreferences.keepScreenOnFlow.collectAsState(initial = true)
 
     val hasBackgroundImage by userPreferences.useBackgroundImage.collectAsState(initial = false)
+    val uiAccessibilityMode by userPreferences.uiAccessibilityMode.collectAsState(initial = false)
 
     var showSaveSuccessMessage by remember { mutableStateOf(false) }
     var userNameInput by remember { mutableStateOf(globalUserName ?: "") }
@@ -225,6 +226,19 @@ fun GlobalDisplaySettingsScreen(
             SectionTitle(
                 text = "自动化显示与行为",
                 icon = Icons.Default.AutoAwesome
+            )
+
+            DisplayToggleItem(
+                title = stringResource(R.string.ui_accessibility_mode),
+                subtitle = stringResource(R.string.ui_accessibility_mode_description),
+                checked = uiAccessibilityMode,
+                onCheckedChange = {
+                    scope.launch {
+                        userPreferences.saveUiAccessibilityMode(it)
+                        showSaveSuccessMessage = true
+                    }
+                },
+                backgroundColor = componentBackgroundColor
             )
 
             Column(

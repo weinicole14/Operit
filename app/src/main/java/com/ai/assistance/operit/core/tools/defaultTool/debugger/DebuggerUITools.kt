@@ -9,6 +9,7 @@ import com.ai.assistance.operit.core.tools.StringResultData
 import com.ai.assistance.operit.core.tools.UIActionResultData
 import com.ai.assistance.operit.core.tools.UIPageResultData
 import com.ai.assistance.operit.core.tools.defaultTool.accessbility.AccessibilityUITools
+import com.ai.assistance.operit.core.tools.defaultTool.standard.StandardUITools
 import com.ai.assistance.operit.core.tools.system.AndroidShellExecutor
 import com.ai.assistance.operit.data.model.AITool
 import com.ai.assistance.operit.data.model.ToolResult
@@ -27,9 +28,21 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
         private const val TAG = "DebuggerUITools"
     }
 
+    /** 是否包含 display 相关参数（有的话强制走 ADB，不走无障碍） */
+    private fun hasDisplayParam(tool: AITool): Boolean {
+        return tool.parameters.any { param ->
+            param.name.equals("display", ignoreCase = true)
+        }
+    }
+
+    private fun getDisplayArg(tool: AITool): String {
+        val display = tool.parameters.find { it.name.equals("display", ignoreCase = true) }?.value?.trim()
+        return if (!display.isNullOrEmpty()) "-d $display " else ""
+    }
+
     /** 使用Shell命令实现点击操作 */
     override suspend fun tap(tool: AITool): ToolResult {
-        if (UIHierarchyManager.isAccessibilityServiceEnabled(context)) {
+        if (!hasDisplayParam(tool) && UIHierarchyManager.isAccessibilityServiceEnabled(context)) {
             AppLogger.d(TAG, "无障碍服务已启用，使用无障碍点击")
             return super.tap(tool)
         }
@@ -53,7 +66,7 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
         // 使用Shell命令执行点击
         try {
             AppLogger.d(TAG, "Attempting to tap at coordinates: ($x, $y) via shell command")
-            val command = "input tap $x $y"
+            val command = "input ${getDisplayArg(tool)}tap $x $y"
             val result = AndroidShellExecutor.executeShellCommand(command)
 
             if (result.success) {
@@ -100,7 +113,7 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
     }
 
     override suspend fun longPress(tool: AITool): ToolResult {
-        if (UIHierarchyManager.isAccessibilityServiceEnabled(context)) {
+        if (!hasDisplayParam(tool) && UIHierarchyManager.isAccessibilityServiceEnabled(context)) {
             AppLogger.d(TAG, "无障碍服务已启用，使用无障碍长按")
             return super.longPress(tool)
         }
@@ -122,7 +135,7 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
         try {
             AppLogger.d(TAG, "Attempting to long press at coordinates: ($x, $y) via shell command")
             // Use swipe to simulate long press
-            val command = "input swipe $x $y $x $y 800"
+            val command = "input ${getDisplayArg(tool)}swipe $x $y $x $y 800"
             val result = AndroidShellExecutor.executeShellCommand(command)
 
             if (result.success) {
@@ -162,7 +175,7 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
 
     /** 使用Shell命令实现滑动操作 */
     override suspend fun swipe(tool: AITool): ToolResult {
-        if (UIHierarchyManager.isAccessibilityServiceEnabled(context)) {
+        if (!hasDisplayParam(tool) && UIHierarchyManager.isAccessibilityServiceEnabled(context)) {
             AppLogger.d(TAG, "无障碍服务已启用，使用无障碍滑动")
             return super.swipe(tool)
         }
@@ -191,7 +204,7 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
                     TAG,
                     "Attempting to swipe from ($startX, $startY) to ($endX, $endY) with duration $duration ms via shell command"
             )
-            val command = "input swipe $startX $startY $endX $endY $duration"
+            val command = "input ${getDisplayArg(tool)}swipe $startX $startY $endX $endY $duration"
             val result = AndroidShellExecutor.executeShellCommand(command)
 
             if (result.success) {
@@ -237,7 +250,7 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
 
     /** 使用Shell命令点击元素 */
     override suspend fun clickElement(tool: AITool): ToolResult {
-        if (UIHierarchyManager.isAccessibilityServiceEnabled(context)) {
+        if (!hasDisplayParam(tool) && UIHierarchyManager.isAccessibilityServiceEnabled(context)) {
             AppLogger.d(TAG, "无障碍服务已启用，使用无障碍点击元素")
             return super.clickElement(tool)
         }
@@ -320,7 +333,7 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
 
     /** 使用Shell命令设置输入文本 */
     override suspend fun setInputText(tool: AITool): ToolResult {
-        if (UIHierarchyManager.isAccessibilityServiceEnabled(context)) {
+        if (!hasDisplayParam(tool) && UIHierarchyManager.isAccessibilityServiceEnabled(context)) {
             AppLogger.d(TAG, "无障碍服务已启用，使用无障碍设置文本")
             return super.setInputText(tool)
         }
@@ -338,7 +351,7 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
 
             // 使用KEYCODE_CLEAR清除字段，这比模拟CTRL+A和DEL更直接
             AppLogger.d(TAG, "Clearing text field with KEYCODE_CLEAR")
-            val clearCommand = "input keyevent KEYCODE_CLEAR"
+            val clearCommand = "input ${getDisplayArg(tool)}keyevent KEYCODE_CLEAR"
             AndroidShellExecutor.executeShellCommand(clearCommand)
 
             // 短暂延迟
@@ -373,7 +386,7 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
             kotlinx.coroutines.delay(100)
 
             // 执行粘贴命令
-            val pasteCommand = "input keyevent KEYCODE_PASTE"
+            val pasteCommand = "input ${getDisplayArg(tool)}keyevent KEYCODE_PASTE"
             val pasteResult = AndroidShellExecutor.executeShellCommand(pasteCommand)
 
             if (pasteResult.success) {
@@ -430,7 +443,7 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
             )
         }
 
-        val command = "input keyevent $keyCode"
+        val command = "input ${getDisplayArg(tool)}keyevent $keyCode"
 
         return try {
             val result = AndroidShellExecutor.executeShellCommand(command)
@@ -466,11 +479,14 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
         }
     }
 
-
+    override suspend fun captureScreenshot(tool: AITool): Pair<String?, Pair<Int, Int>?> {
+        // For debugger/ADB-level tools, reuse the standard shell-based screenshot implementation.
+        return captureScreenshotInternal(tool)
+    }
 
     /** 使用Shell命令获取页面信息 */
     override suspend fun getPageInfo(tool: AITool): ToolResult {
-        if (UIHierarchyManager.isAccessibilityServiceEnabled(context)) {
+        if (!hasDisplayParam(tool) && UIHierarchyManager.isAccessibilityServiceEnabled(context)) {
             AppLogger.d(TAG, "无障碍服务已启用，使用无障碍获取页面信息")
             return super.getPageInfo(tool)
         }
@@ -490,7 +506,7 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
 
         return try {
             // 获取UI数据
-            val uiData = getUIDataFromShell()
+            val uiData = getUIDataFromShell(tool)
             if (uiData == null) {
                 return ToolResult(
                         toolName = tool.name,
@@ -529,15 +545,32 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
     /** UI数据类，保存XML和窗口信息 */
     private data class UIData(val uiXml: String, val windowInfo: String)
 
-    /** 获取UI数据，使用Shell命令 */
-    private suspend fun getUIDataFromShell(): UIData? {
-        try {
+    /** 获取UI数据，使用Shell命令，严格遵守工具参数中的 display（如有） */
+    private suspend fun getUIDataFromShell(tool: AITool): UIData? {
+        return try {
             // 使用ADB命令获取UI dump
             AppLogger.d(TAG, "使用ADB命令获取UI数据")
 
-            // 执行UI dump命令
-            val dumpCommand = "uiautomator dump /sdcard/window_dump.xml"
-            val dumpResult = AndroidShellExecutor.executeShellCommand(dumpCommand)
+            val displayId = tool.parameters
+                .find { it.name.equals("display", ignoreCase = true) }
+                ?.value
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+
+            // 执行UI dump命令，只有在显式提供 display 参数时才使用 --display-id
+            var dumpResult = if (displayId != null) {
+                val cmd = "uiautomator dump --display-id $displayId /sdcard/window_dump.xml"
+                AppLogger.d(TAG, "UI dump using explicit display-id=$displayId")
+                AndroidShellExecutor.executeShellCommand(cmd)
+            } else {
+                AndroidShellExecutor.executeShellCommand("uiautomator dump /sdcard/window_dump.xml")
+            }
+
+            if (!dumpResult.success && displayId != null) {
+                AppLogger.w(TAG, "uiautomator dump with explicit display-id failed, falling back: ${dumpResult.stderr}")
+                dumpResult = AndroidShellExecutor.executeShellCommand("uiautomator dump /sdcard/window_dump.xml")
+            }
+
             if (!dumpResult.success) {
                 AppLogger.e(TAG, "uiautomator dump失败: ${dumpResult.stderr}")
                 return null
@@ -545,8 +578,7 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
             AppLogger.d(TAG, "uiautomator dump成功: ${dumpResult.stdout}")
 
             // 读取dump文件内容
-            val readCommand = "cat /sdcard/window_dump.xml"
-            val readResult = AndroidShellExecutor.executeShellCommand(readCommand)
+            val readResult = AndroidShellExecutor.executeShellCommand("cat /sdcard/window_dump.xml")
             if (!readResult.success) {
                 AppLogger.e(TAG, "读取UI dump文件失败: ${readResult.stderr}")
                 return null
@@ -562,10 +594,10 @@ open class DebuggerUITools(context: Context) : AccessibilityUITools(context) {
                 windowInfo = getWindowInfoFromShell()
             }
 
-            return UIData(readResult.stdout, windowInfo)
+            UIData(readResult.stdout, windowInfo)
         } catch (e: Exception) {
             AppLogger.e(TAG, "获取UI数据时出错", e)
-            return null
+            null
         }
     }
 

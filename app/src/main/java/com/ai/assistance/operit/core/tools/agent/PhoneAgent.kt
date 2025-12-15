@@ -5,10 +5,13 @@ import com.ai.assistance.operit.api.chat.llmprovider.AIService
 import com.ai.assistance.operit.core.tools.AppListData
 import com.ai.assistance.operit.core.tools.defaultTool.ToolGetter
 import com.ai.assistance.operit.core.tools.defaultTool.standard.StandardUITools
+import com.ai.assistance.operit.core.tools.system.AndroidPermissionLevel
 import com.ai.assistance.operit.data.model.AITool
 import com.ai.assistance.operit.data.model.ToolParameter
 import com.ai.assistance.operit.data.model.ToolResult
+import com.ai.assistance.operit.data.preferences.androidPermissionPreferences
 import com.ai.assistance.operit.ui.common.displays.UIAutomationProgressOverlay
+import com.ai.assistance.operit.ui.common.displays.VirtualDisplayOverlay
 import com.ai.assistance.operit.util.AppLogger
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
@@ -270,8 +273,7 @@ class ActionHandler(
     private val context: Context,
     private var screenWidth: Int, // Changed to var
     private var screenHeight: Int, // Changed to var,
-    private val toolImplementations: ToolImplementations,
-    private val screenshotProvider: suspend () -> Pair<String?, Pair<Int, Int>?>
+    private val toolImplementations: ToolImplementations
 ) {
     data class ActionExecResult(
         val success: Boolean,
@@ -280,13 +282,30 @@ class ActionHandler(
     )
 
     suspend fun captureScreenshotForAgent(): String? {
-        val (screenshotLink, dimensions) = screenshotProvider()
+        val screenshotTool = buildScreenshotTool()
+        val (screenshotLink, dimensions) = toolImplementations.captureScreenshot(screenshotTool)
         if (dimensions != null) {
             screenWidth = dimensions.first
             screenHeight = dimensions.second
             AppLogger.d("ActionHandler", "Updated screen dimensions from screenshot: w=$screenWidth, h=$screenHeight")
         }
         return screenshotLink
+    }
+
+    private fun buildScreenshotTool(): AITool {
+        val params = mutableListOf<ToolParameter>()
+        try {
+            val virtualId = VirtualDisplayManager.getInstance(context).getDisplayId()
+            if (virtualId != null) {
+                params += ToolParameter("display", virtualId.toString())
+            }
+        } catch (e: Exception) {
+            AppLogger.e("ActionHandler", "Error getting virtual display id for screenshot tool", e)
+        }
+        return AITool(
+            name = "capture_screenshot",
+            parameters = params
+        )
     }
 
     fun removeImagesFromLastUserMessage(history: MutableList<Pair<String, String>>) {
@@ -315,7 +334,12 @@ class ActionHandler(
                     try {
                         val systemTools = ToolGetter.getSystemOperationTools(context)
                         val result = systemTools.startApp(AITool("start_app", listOf(ToolParameter("package_name", packageName))))
-                        if (result.success) ok() else fail(message = result.error ?: "Failed to launch app: $packageName")
+                        if (result.success) {
+                            ensureVirtualDisplayIfAdbOrHigher()
+                            ok()
+                        } else {
+                            fail(message = result.error ?: "Failed to launch app: $packageName")
+                        }
                     } catch (e: Exception) {
                         fail(message = "Exception while launching app $packageName: ${e.message}")
                     }
@@ -323,12 +347,19 @@ class ActionHandler(
                 "Tap" -> {
                     val element = fields["element"] ?: return fail(message = "No element for Tap")
                     val (x, y) = parseRelativePoint(element) ?: return fail(message = "Invalid coordinates for Tap: $element")
-                    val result = toolImplementations.tap(AITool("tap", listOf(ToolParameter("x", x.toString()), ToolParameter("y", y.toString()))))
+                    val params = withDisplayParam(
+                        listOf(
+                            ToolParameter("x", x.toString()),
+                            ToolParameter("y", y.toString())
+                        )
+                    )
+                    val result = toolImplementations.tap(AITool("tap", params))
                     if (result.success) ok() else fail(message = result.error ?: "Tap failed at ($x,$y)")
                 }
                 "Type" -> {
                     val text = fields["text"] ?: ""
-                    val result = toolImplementations.setInputText(AITool("set_input_text", listOf(ToolParameter("text", text))))
+                    val params = withDisplayParam(listOf(ToolParameter("text", text)))
+                    val result = toolImplementations.setInputText(AITool("set_input_text", params))
                     if (result.success) ok() else fail(message = result.error ?: "Set input text failed")
                 }
                 "Swipe" -> {
@@ -336,16 +367,25 @@ class ActionHandler(
                     val end = fields["end"] ?: return fail(message = "Missing swipe end")
                     val (sx, sy) = parseRelativePoint(start) ?: return fail(message = "Invalid swipe start: $start")
                     val (ex, ey) = parseRelativePoint(end) ?: return fail(message = "Invalid swipe end: $end")
-                    val params = listOf(ToolParameter("start_x", sx.toString()), ToolParameter("start_y", sy.toString()), ToolParameter("end_x", ex.toString()), ToolParameter("end_y", ey.toString()))
+                    val params = withDisplayParam(
+                        listOf(
+                            ToolParameter("start_x", sx.toString()),
+                            ToolParameter("start_y", sy.toString()),
+                            ToolParameter("end_x", ex.toString()),
+                            ToolParameter("end_y", ey.toString())
+                        )
+                    )
                     val result = toolImplementations.swipe(AITool("swipe", params))
                     if (result.success) ok() else fail(message = result.error ?: "Swipe failed")
                 }
                 "Back" -> {
-                    val result = toolImplementations.pressKey(AITool("press_key", listOf(ToolParameter("key_code", "KEYCODE_BACK"))))
+                    val params = withDisplayParam(listOf(ToolParameter("key_code", "KEYCODE_BACK")))
+                    val result = toolImplementations.pressKey(AITool("press_key", params))
                     if (result.success) ok() else fail(message = result.error ?: "Back key failed")
                 }
                 "Home" -> {
-                    val result = toolImplementations.pressKey(AITool("press_key", listOf(ToolParameter("key_code", "KEYCODE_HOME"))))
+                    val params = withDisplayParam(listOf(ToolParameter("key_code", "KEYCODE_HOME")))
+                    val result = toolImplementations.pressKey(AITool("press_key", params))
                     if (result.success) ok() else fail(message = result.error ?: "Home key failed")
                 }
                 "Wait" -> {
@@ -358,6 +398,43 @@ class ActionHandler(
             }
         } finally {
             progressOverlay.setOverlayAlpha(1f)
+        }
+    }
+
+    private fun ensureVirtualDisplayIfAdbOrHigher() {
+        try {
+            val level = androidPermissionPreferences.getPreferredPermissionLevel() ?: AndroidPermissionLevel.STANDARD
+            val isAdbOrHigher = when (level) {
+                AndroidPermissionLevel.DEBUGGER,
+                AndroidPermissionLevel.ADMIN,
+                AndroidPermissionLevel.ROOT -> true
+                else -> false
+            }
+
+            if (!isAdbOrHigher) {
+                return
+            }
+
+            val manager = VirtualDisplayManager.getInstance(context)
+            val id = manager.ensureVirtualDisplay()
+            if (id != null) {
+                VirtualDisplayOverlay.getInstance(context).show(id)
+                AppLogger.d("ActionHandler", "Virtual display ensured and overlay shown for id=$id")
+            } else {
+                AppLogger.w("ActionHandler", "Failed to create virtual display at ADB-level permission")
+            }
+        } catch (e: Exception) {
+            AppLogger.e("ActionHandler", "Error ensuring virtual display", e)
+        }
+    }
+
+    private fun withDisplayParam(params: List<ToolParameter>): List<ToolParameter> {
+        return try {
+            val id = VirtualDisplayManager.getInstance(context).getDisplayId()
+            if (id != null) params + ToolParameter("display", id.toString()) else params
+        } catch (e: Exception) {
+            AppLogger.e("ActionHandler", "Error getting virtual display id", e)
+            params
         }
     }
 
@@ -387,4 +464,5 @@ interface ToolImplementations {
     suspend fun setInputText(tool: AITool): ToolResult
     suspend fun swipe(tool: AITool): ToolResult
     suspend fun pressKey(tool: AITool): ToolResult
+    suspend fun captureScreenshot(tool: AITool): Pair<String?, Pair<Int, Int>?>
 }

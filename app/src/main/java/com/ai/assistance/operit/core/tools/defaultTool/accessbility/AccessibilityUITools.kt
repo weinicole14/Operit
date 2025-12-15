@@ -1,6 +1,7 @@
 package com.ai.assistance.operit.core.tools.defaultTool.accessbility
 
 import android.content.Context
+import android.graphics.BitmapFactory
 import com.ai.assistance.operit.util.AppLogger
 import com.ai.assistance.operit.core.tools.SimplifiedUINode
 import com.ai.assistance.operit.core.tools.StringResultData
@@ -10,6 +11,8 @@ import com.ai.assistance.operit.core.tools.defaultTool.standard.StandardUITools
 import com.ai.assistance.operit.data.model.AITool
 import com.ai.assistance.operit.data.model.ToolResult
 import com.ai.assistance.operit.data.repository.UIHierarchyManager
+import com.ai.assistance.operit.util.ImagePoolManager
+import java.io.File
 import java.io.StringReader
 import org.json.JSONObject
 import org.xmlpull.v1.XmlPullParser
@@ -714,7 +717,42 @@ open class AccessibilityUITools(context: Context) : StandardUITools(context) {
         }
     }
 
+    override suspend fun captureScreenshot(tool: AITool): Pair<String?, Pair<Int, Int>?> {
+        return try {
+            val screenshotDir = File("/sdcard/Download/Operit/cleanOnExit")
+            if (!screenshotDir.exists()) {
+                screenshotDir.mkdirs()
+            }
 
+            val shortName = System.currentTimeMillis().toString().takeLast(4)
+            val file = File(screenshotDir, "$shortName.png")
+
+            val success = UIHierarchyManager.takeScreenshot(context, file.absolutePath, "png")
+            if (!success) {
+                AppLogger.w(TAG, "captureScreenshotForAgent: AIDL takeScreenshot failed")
+                return Pair(null, null)
+            }
+
+            val imageId = ImagePoolManager.addImage(file.absolutePath)
+            if (imageId == "error") {
+                AppLogger.e(TAG, "captureScreenshotForAgent: failed to register image: ${file.absolutePath}")
+                return Pair(null, null)
+            }
+
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, options)
+            val dimensions = if (options.outWidth > 0 && options.outHeight > 0) {
+                Pair(options.outWidth, options.outHeight)
+            } else {
+                null
+            }
+
+            Pair("<link type=\"image\" id=\"$imageId\"></link>", dimensions)
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "captureScreenshot via accessibility failed", e)
+            Pair(null, null)
+        }
+    }
 
     private fun parseBounds(boundsString: String): android.graphics.Rect {
         // 解析 "[left,top][right,bottom]" 格式的边界字符串

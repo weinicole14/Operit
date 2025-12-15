@@ -30,6 +30,11 @@ open class RootUITools(context: Context) : AdminUITools(context) {
         private const val TAG = "RootUITools"
     }
 
+    private fun getDisplayArg(tool: AITool): String {
+        val display = tool.parameters.find { it.name.equals("display", ignoreCase = true) }?.value?.trim()
+        return if (!display.isNullOrEmpty()) "-d $display " else ""
+    }
+
     /** Performs a tap action using the 'input tap' shell command. */
     override suspend fun tap(tool: AITool): ToolResult {
         val x = tool.parameters.find { it.name == "x" }?.value?.toIntOrNull()
@@ -49,7 +54,7 @@ open class RootUITools(context: Context) : AdminUITools(context) {
 
         try {
             AppLogger.d(TAG, "Attempting to tap at coordinates: ($x, $y) via shell command")
-            val command = "input tap $x $y"
+            val command = "input ${getDisplayArg(tool)}tap $x $y"
             val result = AndroidShellExecutor.executeShellCommand(command)
 
             return if (result.success) {
@@ -108,7 +113,7 @@ open class RootUITools(context: Context) : AdminUITools(context) {
 
         try {
             AppLogger.d(TAG, "Attempting to long press at coordinates: ($x, $y) via shell swipe command")
-            val command = "input swipe $x $y $x $y $durationMs"
+            val command = "input ${getDisplayArg(tool)}swipe $x $y $x $y $durationMs"
             val result = AndroidShellExecutor.executeShellCommand(command)
 
             return if (result.success) {
@@ -169,7 +174,7 @@ open class RootUITools(context: Context) : AdminUITools(context) {
 
         try {
             AppLogger.d(TAG, "Swiping from ($startX, $startY) to ($endX, $endY) via shell")
-            val command = "input swipe $startX $startY $endX $endY $duration"
+            val command = "input ${getDisplayArg(tool)}swipe $startX $startY $endX $endY $duration"
             val result = AndroidShellExecutor.executeShellCommand(command)
 
             return if (result.success) {
@@ -252,7 +257,7 @@ open class RootUITools(context: Context) : AdminUITools(context) {
             }
 
             AppLogger.d(TAG, "Clearing text field with KEYCODE_CLEAR")
-            AndroidShellExecutor.executeShellCommand("input keyevent KEYCODE_CLEAR")
+            AndroidShellExecutor.executeShellCommand("input ${getDisplayArg(tool)}keyevent KEYCODE_CLEAR")
             delay(300)
 
             if (text.isEmpty()) {
@@ -272,7 +277,7 @@ open class RootUITools(context: Context) : AdminUITools(context) {
             }
             delay(100)
 
-            val pasteResult = AndroidShellExecutor.executeShellCommand("input keyevent KEYCODE_PASTE")
+            val pasteResult = AndroidShellExecutor.executeShellCommand("input ${getDisplayArg(tool)}keyevent KEYCODE_PASTE")
             return if (pasteResult.success) {
                 // 成功后主动隐藏overlay
                 withContext(Dispatchers.Main) { overlay.hide() }
@@ -318,7 +323,7 @@ open class RootUITools(context: Context) : AdminUITools(context) {
             )
 
         try {
-            val result = AndroidShellExecutor.executeShellCommand("input keyevent $keyCode")
+            val result = AndroidShellExecutor.executeShellCommand("input ${getDisplayArg(tool)}keyevent $keyCode")
             return if (result.success) {
                 ToolResult(
                     toolName = tool.name,
@@ -347,7 +352,7 @@ open class RootUITools(context: Context) : AdminUITools(context) {
     /** Gets page info using uiautomator dump and dumpsys. */
     override suspend fun getPageInfo(tool: AITool): ToolResult {
         return try {
-            val uiData = getUIDataFromShell()
+            val uiData = getUIDataFromShell(tool)
                 ?: return ToolResult(
                     toolName = tool.name,
                     success = false,
@@ -379,10 +384,29 @@ open class RootUITools(context: Context) : AdminUITools(context) {
 
     private data class UIData(val uiXml: String, val windowInfo: String)
 
-    private suspend fun getUIDataFromShell(): UIData? {
+    private suspend fun getUIDataFromShell(tool: AITool): UIData? {
         return try {
             AppLogger.d(TAG, "Getting UI data via ADB")
-            val dumpResult = AndroidShellExecutor.executeShellCommand("uiautomator dump /sdcard/window_dump.xml")
+
+            val displayId = tool.parameters
+                .find { it.name.equals("display", ignoreCase = true) }
+                ?.value
+                ?.trim()
+                ?.takeIf { it.isNotEmpty() }
+
+            var dumpResult = if (displayId != null) {
+                val cmd = "uiautomator dump --display-id $displayId /sdcard/window_dump.xml"
+                AppLogger.d(TAG, "UI dump using explicit display-id=$displayId")
+                AndroidShellExecutor.executeShellCommand(cmd)
+            } else {
+                AndroidShellExecutor.executeShellCommand("uiautomator dump /sdcard/window_dump.xml")
+            }
+
+            if (!dumpResult.success && displayId != null) {
+                AppLogger.w(TAG, "uiautomator dump with explicit display-id failed, falling back: ${dumpResult.stderr}")
+                dumpResult = AndroidShellExecutor.executeShellCommand("uiautomator dump /sdcard/window_dump.xml")
+            }
+
             if (!dumpResult.success) {
                 AppLogger.e(TAG, "uiautomator dump failed: ${dumpResult.stderr}")
                 return null
