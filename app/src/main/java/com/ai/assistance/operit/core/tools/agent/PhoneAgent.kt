@@ -6,6 +6,7 @@ import com.ai.assistance.operit.core.tools.AppListData
 import com.ai.assistance.operit.core.tools.defaultTool.ToolGetter
 import com.ai.assistance.operit.core.tools.defaultTool.standard.StandardUITools
 import com.ai.assistance.operit.core.tools.system.AndroidPermissionLevel
+import com.ai.assistance.operit.core.tools.system.AndroidShellExecutor
 import com.ai.assistance.operit.data.model.AITool
 import com.ai.assistance.operit.data.model.ToolParameter
 import com.ai.assistance.operit.data.model.ToolResult
@@ -13,10 +14,14 @@ import com.ai.assistance.operit.data.preferences.androidPermissionPreferences
 import com.ai.assistance.operit.ui.common.displays.UIAutomationProgressOverlay
 import com.ai.assistance.operit.ui.common.displays.VirtualDisplayOverlay
 import com.ai.assistance.operit.util.AppLogger
+import com.ai.assistance.operit.util.ImagePoolManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Locale
 import android.graphics.BitmapFactory
+import android.view.KeyEvent
+import java.io.File
+import java.io.FileOutputStream
 
 /** Configuration for the PhoneAgent. */
 data class AgentConfig(
@@ -281,9 +286,59 @@ class ActionHandler(
         val message: String?
     )
 
+    /**
+     * Lightweight context describing whether we should route operations through Shower.
+     */
+    private data class ShowerUsageContext(
+        val isAdbOrHigher: Boolean,
+        val showerDisplayId: Int?
+    ) {
+        val hasShowerDisplay: Boolean get() = showerDisplayId != null
+        val canUseShowerForInput: Boolean get() = isAdbOrHigher && showerDisplayId != null
+    }
+
+    private fun resolveShowerUsageContext(): ShowerUsageContext {
+        val level = androidPermissionPreferences.getPreferredPermissionLevel() ?: AndroidPermissionLevel.STANDARD
+        val isAdbOrHigher = when (level) {
+            AndroidPermissionLevel.DEBUGGER,
+            AndroidPermissionLevel.ADMIN,
+            AndroidPermissionLevel.ROOT -> true
+            else -> false
+        }
+        val showerId = try {
+            ShowerController.getDisplayId()
+        } catch (e: Exception) {
+            AppLogger.e("ActionHandler", "Error getting Shower display id", e)
+            null
+        }
+        return ShowerUsageContext(isAdbOrHigher = isAdbOrHigher, showerDisplayId = showerId)
+    }
+
     suspend fun captureScreenshotForAgent(): String? {
-        val screenshotTool = buildScreenshotTool()
-        val (screenshotLink, dimensions) = toolImplementations.captureScreenshot(screenshotTool)
+        val showerCtx = resolveShowerUsageContext()
+
+        var screenshotLink: String? = null
+        var dimensions: Pair<Int, Int>? = null
+
+        // 优先尝试通过 Shower WebSocket 截图虚拟屏
+        if (showerCtx.canUseShowerForInput) {
+            val (link, dims) = captureScreenshotViaShower()
+            screenshotLink = link
+            dimensions = dims
+        }
+
+        // 如果 Shower 截图不可用，则回退到工具层的通用截图实现
+        if (screenshotLink == null) {
+            val screenshotTool = buildScreenshotTool()
+            val (fallbackLink, fallbackDims) = toolImplementations.captureScreenshot(screenshotTool)
+            if (screenshotLink == null) {
+                screenshotLink = fallbackLink
+            }
+            if (dimensions == null) {
+                dimensions = fallbackDims
+            }
+        }
+
         if (dimensions != null) {
             screenWidth = dimensions.first
             screenHeight = dimensions.second
@@ -293,19 +348,47 @@ class ActionHandler(
     }
 
     private fun buildScreenshotTool(): AITool {
-        val params = mutableListOf<ToolParameter>()
-        try {
-            val virtualId = VirtualDisplayManager.getInstance(context).getDisplayId()
-            if (virtualId != null) {
-                params += ToolParameter("display", virtualId.toString())
-            }
-        } catch (e: Exception) {
-            AppLogger.e("ActionHandler", "Error getting virtual display id for screenshot tool", e)
-        }
         return AITool(
             name = "capture_screenshot",
-            parameters = params
+            parameters = emptyList()
         )
+    }
+
+    private suspend fun captureScreenshotViaShower(): Pair<String?, Pair<Int, Int>?> {
+        return try {
+            val pngBytes = ShowerVideoRenderer.captureCurrentFramePng()
+            if (pngBytes == null || pngBytes.isEmpty()) {
+                AppLogger.w("ActionHandler", "Shower WS screenshot returned no data")
+                Pair(null, null)
+            } else {
+                val screenshotDir = File("/sdcard/Download/Operit/cleanOnExit")
+                if (!screenshotDir.exists()) {
+                    screenshotDir.mkdirs()
+                }
+
+                val shortName = System.currentTimeMillis().toString().takeLast(4)
+                val file = File(screenshotDir, "$shortName.png")
+                FileOutputStream(file).use { it.write(pngBytes) }
+
+                val imageId = ImagePoolManager.addImage(file.absolutePath)
+                if (imageId == "error") {
+                    AppLogger.e("ActionHandler", "Shower screenshot: failed to register image: ${file.absolutePath}")
+                    Pair(null, null)
+                } else {
+                    val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    BitmapFactory.decodeFile(file.absolutePath, options)
+                    val dimensions = if (options.outWidth > 0 && options.outHeight > 0) {
+                        Pair(options.outWidth, options.outHeight)
+                    } else {
+                        null
+                    }
+                    Pair("<link type=\"image\" id=\"$imageId\"></link>", dimensions)
+                }
+            }
+        } catch (e: Exception) {
+            AppLogger.e("ActionHandler", "Shower screenshot failed", e)
+            Pair(null, null)
+        }
     }
 
     fun removeImagesFromLastUserMessage(history: MutableList<Pair<String, String>>) {
@@ -327,18 +410,38 @@ class ActionHandler(
         val progressOverlay = UIAutomationProgressOverlay.getInstance(context)
         return try {
             progressOverlay.setOverlayAlpha(0f)
+            val showerCtx = resolveShowerUsageContext()
             when (actionName) {
                 "Launch" -> {
                     val app = fields["app"]?.takeIf { it.isNotBlank() } ?: return fail(message = "No app name specified for Launch")
                     val packageName = resolveAppPackageName(app)
                     try {
-                        val systemTools = ToolGetter.getSystemOperationTools(context)
-                        val result = systemTools.startApp(AITool("start_app", listOf(ToolParameter("package_name", packageName))))
-                        if (result.success) {
+                        if (showerCtx.isAdbOrHigher) {
+                            // High-privilege path: use Shower server + virtual display.
                             ensureVirtualDisplayIfAdbOrHigher()
-                            ok()
+
+                            val metrics = context.resources.displayMetrics
+                            val width = metrics.widthPixels
+                            val height = metrics.heightPixels
+                            val dpi = metrics.densityDpi
+
+                            val created = ShowerController.ensureDisplay(width, height, dpi, bitrateKbps = 1500)
+                            val launched = if (created) ShowerController.launchApp(packageName) else false
+
+                            if (created && launched) {
+                                ok()
+                            } else {
+                                fail(message = "Failed to launch app on Shower virtual display: $packageName")
+                            }
                         } else {
-                            fail(message = result.error ?: "Failed to launch app: $packageName")
+                            // Fallback: legacy startApp on main display.
+                            val systemTools = ToolGetter.getSystemOperationTools(context)
+                            val result = systemTools.startApp(AITool("start_app", listOf(ToolParameter("package_name", packageName))))
+                            if (result.success) {
+                                ok()
+                            } else {
+                                fail(message = result.error ?: "Failed to launch app: $packageName")
+                            }
                         }
                     } catch (e: Exception) {
                         fail(message = "Exception while launching app $packageName: ${e.message}")
@@ -347,14 +450,19 @@ class ActionHandler(
                 "Tap" -> {
                     val element = fields["element"] ?: return fail(message = "No element for Tap")
                     val (x, y) = parseRelativePoint(element) ?: return fail(message = "Invalid coordinates for Tap: $element")
-                    val params = withDisplayParam(
-                        listOf(
-                            ToolParameter("x", x.toString()),
-                            ToolParameter("y", y.toString())
+                    if (showerCtx.canUseShowerForInput) {
+                        val okTap = ShowerController.tap(x, y)
+                        if (okTap) ok() else fail(message = "Shower TAP failed at ($x,$y)")
+                    } else {
+                        val params = withDisplayParam(
+                            listOf(
+                                ToolParameter("x", x.toString()),
+                                ToolParameter("y", y.toString())
+                            )
                         )
-                    )
-                    val result = toolImplementations.tap(AITool("tap", params))
-                    if (result.success) ok() else fail(message = result.error ?: "Tap failed at ($x,$y)")
+                        val result = toolImplementations.tap(AITool("tap", params))
+                        if (result.success) ok() else fail(message = result.error ?: "Tap failed at ($x,$y)")
+                    }
                 }
                 "Type" -> {
                     val text = fields["text"] ?: ""
@@ -367,26 +475,41 @@ class ActionHandler(
                     val end = fields["end"] ?: return fail(message = "Missing swipe end")
                     val (sx, sy) = parseRelativePoint(start) ?: return fail(message = "Invalid swipe start: $start")
                     val (ex, ey) = parseRelativePoint(end) ?: return fail(message = "Invalid swipe end: $end")
-                    val params = withDisplayParam(
-                        listOf(
-                            ToolParameter("start_x", sx.toString()),
-                            ToolParameter("start_y", sy.toString()),
-                            ToolParameter("end_x", ex.toString()),
-                            ToolParameter("end_y", ey.toString())
+                    if (showerCtx.canUseShowerForInput) {
+                        val okSwipe = ShowerController.swipe(sx, sy, ex, ey)
+                        if (okSwipe) ok() else fail(message = "Shower SWIPE failed")
+                    } else {
+                        val params = withDisplayParam(
+                            listOf(
+                                ToolParameter("start_x", sx.toString()),
+                                ToolParameter("start_y", sy.toString()),
+                                ToolParameter("end_x", ex.toString()),
+                                ToolParameter("end_y", ey.toString())
+                            )
                         )
-                    )
-                    val result = toolImplementations.swipe(AITool("swipe", params))
-                    if (result.success) ok() else fail(message = result.error ?: "Swipe failed")
+                        val result = toolImplementations.swipe(AITool("swipe", params))
+                        if (result.success) ok() else fail(message = result.error ?: "Swipe failed")
+                    }
                 }
                 "Back" -> {
-                    val params = withDisplayParam(listOf(ToolParameter("key_code", "KEYCODE_BACK")))
-                    val result = toolImplementations.pressKey(AITool("press_key", params))
-                    if (result.success) ok() else fail(message = result.error ?: "Back key failed")
+                    if (showerCtx.canUseShowerForInput) {
+                        val okKey = ShowerController.key(KeyEvent.KEYCODE_BACK)
+                        if (okKey) ok() else fail(message = "Shower BACK key failed")
+                    } else {
+                        val params = withDisplayParam(listOf(ToolParameter("key_code", "KEYCODE_BACK")))
+                        val result = toolImplementations.pressKey(AITool("press_key", params))
+                        if (result.success) ok() else fail(message = result.error ?: "Back key failed")
+                    }
                 }
                 "Home" -> {
-                    val params = withDisplayParam(listOf(ToolParameter("key_code", "KEYCODE_HOME")))
-                    val result = toolImplementations.pressKey(AITool("press_key", params))
-                    if (result.success) ok() else fail(message = result.error ?: "Home key failed")
+                    if (showerCtx.canUseShowerForInput) {
+                        val okKey = ShowerController.key(KeyEvent.KEYCODE_HOME)
+                        if (okKey) ok() else fail(message = "Shower HOME key failed")
+                    } else {
+                        val params = withDisplayParam(listOf(ToolParameter("key_code", "KEYCODE_HOME")))
+                        val result = toolImplementations.pressKey(AITool("press_key", params))
+                        if (result.success) ok() else fail(message = result.error ?: "Home key failed")
+                    }
                 }
                 "Wait" -> {
                     val seconds = fields["duration"]?.replace("seconds", "")?.trim()?.toDoubleOrNull() ?: 1.0
@@ -401,7 +524,7 @@ class ActionHandler(
         }
     }
 
-    private fun ensureVirtualDisplayIfAdbOrHigher() {
+    private suspend fun ensureVirtualDisplayIfAdbOrHigher() {
         try {
             val level = androidPermissionPreferences.getPreferredPermissionLevel() ?: AndroidPermissionLevel.STANDARD
             val isAdbOrHigher = when (level) {
@@ -415,25 +538,36 @@ class ActionHandler(
                 return
             }
 
-            val manager = VirtualDisplayManager.getInstance(context)
-            val id = manager.ensureVirtualDisplay()
-            if (id != null) {
-                VirtualDisplayOverlay.getInstance(context).show(id)
-                AppLogger.d("ActionHandler", "Virtual display ensured and overlay shown for id=$id")
+            // Start the Shower virtual display server when we have debugger/ADB-level permissions.
+            val ok = ShowerServerManager.ensureServerStarted(context)
+            if (ok) {
+                // We do not know the concrete display id from here yet, but we still show the overlay
+                // to indicate that a virtual display session is active.
+                try {
+                    VirtualDisplayOverlay.getInstance(context).show(0)
+                } catch (e: Exception) {
+                    AppLogger.e("ActionHandler", "Error showing Shower virtual display overlay", e)
+                }
+                AppLogger.d("ActionHandler", "Shower virtual display server started via AndroidShellExecutor")
             } else {
-                AppLogger.w("ActionHandler", "Failed to create virtual display at ADB-level permission")
+                AppLogger.w("ActionHandler", "Failed to start Shower server at ADB-level permission")
             }
         } catch (e: Exception) {
-            AppLogger.e("ActionHandler", "Error ensuring virtual display", e)
+            AppLogger.e("ActionHandler", "Error ensuring Shower virtual display", e)
         }
     }
 
     private fun withDisplayParam(params: List<ToolParameter>): List<ToolParameter> {
         return try {
-            val id = VirtualDisplayManager.getInstance(context).getDisplayId()
-            if (id != null) params + ToolParameter("display", id.toString()) else params
+            val showerId = ShowerController.getDisplayId()
+            if (showerId != null) {
+                params + ToolParameter("display", showerId.toString())
+            } else {
+                val id = VirtualDisplayManager.getInstance(context).getDisplayId()
+                if (id != null) params + ToolParameter("display", id.toString()) else params
+            }
         } catch (e: Exception) {
-            AppLogger.e("ActionHandler", "Error getting virtual display id", e)
+            AppLogger.e("ActionHandler", "Error getting display id", e)
             params
         }
     }

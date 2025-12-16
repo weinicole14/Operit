@@ -24,6 +24,8 @@ import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -243,7 +245,21 @@ public class Main {
         // Use RGBA_8888 so that we can easily convert to Bitmap
         try {
             int actualBitRate = bitRate > 0 ? bitRate : DEFAULT_BIT_RATE;
-            MediaFormat format = MediaFormat.createVideoFormat("video/avc", width, height);
+
+            // Many H.264 encoders require width/height to be aligned to a multiple of 8 (or 16).
+            // Using odd sizes (like 1080x2319) can cause MediaCodec.configure() to throw
+            // CodecException with no clear message. Align the capture size down to the
+            // nearest multiple of 8, similar to scrcpy's alignment logic.
+            int alignedWidth = width & ~7;  // multiple of 8
+            int alignedHeight = height & ~7; // multiple of 8
+            if (alignedWidth <= 0 || alignedHeight <= 0) {
+                alignedWidth = Math.max(2, width);
+                alignedHeight = Math.max(2, height);
+            }
+
+            logToFile("ensureVirtualDisplay using aligned size: " + alignedWidth + "x" + alignedHeight, null);
+
+            MediaFormat format = MediaFormat.createVideoFormat("video/avc", alignedWidth, alignedHeight);
             format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
             format.setInteger(MediaFormat.KEY_BIT_RATE, actualBitRate);
             format.setInteger(MediaFormat.KEY_FRAME_RATE, 30);
@@ -280,8 +296,8 @@ public class Main {
 
             virtualDisplay = dm.createVirtualDisplay(
                     "ShowerVirtualDisplay",
-                    width,
-                    height,
+                    alignedWidth,
+                    alignedHeight,
                     dpi,
                     encoderSurface,
                     flags
@@ -316,6 +332,74 @@ public class Main {
             Log.e(TAG, "Failed to create virtual display or encoder", e);
             logToFile("Failed to create virtual display or encoder: " + e.getMessage(), e);
             stopEncoder();
+        }
+    }
+
+    /**
+     * Handle a SCREENSHOT command from a specific WebSocket connection.
+     *
+     * This captures a PNG of the current virtual display using the shell `screencap -d` command
+     * and sends it back to the requesting client as a Base64-encoded text frame:
+     *   SCREENSHOT_DATA <base64_png>
+     */
+    private void handleScreenshotRequest(WebSocket conn) {
+        if (virtualDisplay == null || virtualDisplay.getDisplay() == null || virtualDisplayId == -1) {
+            logToFile("SCREENSHOT requested but no virtual display", null);
+            try {
+                conn.send("SCREENSHOT_ERROR no_virtual_display");
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to send SCREENSHOT_ERROR", e);
+            }
+            return;
+        }
+
+        String path = "/data/local/tmp/shower_screenshot.png";
+        String cmd = "screencap -d " + virtualDisplayId + " -p " + path;
+        Process proc = null;
+        try {
+            logToFile("SCREENSHOT executing: " + cmd, null);
+            proc = Runtime.getRuntime().exec(new String[]{"sh", "-c", cmd});
+            int exit = proc.waitFor();
+            if (exit != 0) {
+                logToFile("SCREENSHOT screencap exited with code=" + exit, null);
+                conn.send("SCREENSHOT_ERROR screencap_failed:" + exit);
+                return;
+            }
+
+            File f = new File(path);
+            if (!f.exists() || f.length() == 0) {
+                logToFile("SCREENSHOT file missing or empty: " + path, null);
+                conn.send("SCREENSHOT_ERROR file_missing");
+                return;
+            }
+
+            byte[] data;
+            try (FileInputStream fis = new FileInputStream(f)) {
+                data = new byte[(int) f.length()];
+                int read = fis.read(data);
+                if (read != data.length) {
+                    logToFile("SCREENSHOT short read: " + read + " / " + data.length, null);
+                }
+            }
+
+            // Encode as Base64 without line breaks.
+            String b64 = android.util.Base64.encodeToString(data, android.util.Base64.NO_WRAP);
+            logToFile("SCREENSHOT captured, bytes=" + data.length + ", b64_len=" + b64.length(), null);
+            conn.send("SCREENSHOT_DATA " + b64);
+        } catch (Exception e) {
+            Log.e(TAG, "handleScreenshotRequest failed", e);
+            logToFile("SCREENSHOT failed: " + e.getMessage(), e);
+            try {
+                conn.send("SCREENSHOT_ERROR " + e.getClass().getSimpleName() + ":" + e.getMessage());
+            } catch (Exception ignored) {
+            }
+        } finally {
+            if (proc != null) {
+                try {
+                    proc.destroy();
+                } catch (Exception ignored) {
+                }
+            }
         }
     }
 
@@ -594,6 +678,8 @@ public class Main {
                         logToFile("Invalid KEY params: " + trimmed, e);
                     }
                 }
+            } else if (trimmed.startsWith("SCREENSHOT")) {
+                handleScreenshotRequest(conn);
             } else if (trimmed.startsWith("LAUNCH_APP")) {
                 String[] parts = trimmed.split("\\s+", 2);
                 if (parts.length >= 2) {

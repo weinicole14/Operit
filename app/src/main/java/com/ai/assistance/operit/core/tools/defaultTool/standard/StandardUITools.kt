@@ -40,7 +40,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import java.io.File
-import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -524,30 +523,21 @@ open class StandardUITools(protected val context: Context) : ToolImplementations
                 }
                 // Give the system a brief moment to commit the alpha change to the compositor
                 delay(50)
-                // 优先尝试通过 VirtualDisplayManager 从指定 display 的虚拟屏直接抓帧
-                val explicitDisplay = tool.parameters
-                    .find { it.name.equals("display", ignoreCase = true) }
-                    ?.value
-                    ?.trim()
+                var usedVirtual = false
 
-                val usedVirtual = if (!explicitDisplay.isNullOrEmpty()) {
-                    try {
-                        val manager = VirtualDisplayManager.getInstance(context)
-                        val id = manager.getDisplayId()
-                        if (id != null && id.toString() == explicitDisplay && manager.captureLatestFrameToFile(file)) {
-                            AppLogger.d(TAG, "captureScreenshotForAgent: captured from virtual display $id via ImageReader (explicit display)")
-                            true
-                        } else {
-                            false
-                        }
-                    } catch (e: Exception) {
-                        AppLogger.e(TAG, "captureScreenshotForAgent: error capturing from virtual display", e)
-                        false
+                // 1) 如果存在基于 VirtualDisplayManager 的虚拟显示，优先从中抓帧
+                try {
+                    val manager = VirtualDisplayManager.getInstance(context)
+                    val id = manager.getDisplayId()
+                    if (id != null && manager.captureLatestFrameToFile(file)) {
+                        AppLogger.d(TAG, "captureScreenshotForAgent: captured from legacy virtual display $id via ImageReader")
+                        usedVirtual = true
                     }
-                } else {
-                    false
+                } catch (e: Exception) {
+                    AppLogger.e(TAG, "captureScreenshotForAgent: error capturing from legacy virtual display", e)
                 }
 
+                // 2) 仍未成功，则回退到主屏 screencap
                 if (!usedVirtual) {
                     val result = AndroidShellExecutor.executeShellCommand("screencap -p ${file.absolutePath}")
                     if (!result.success) {
@@ -567,11 +557,6 @@ open class StandardUITools(protected val context: Context) : ToolImplementations
                         Pair(options.outWidth, options.outHeight)
                     } else {
                         null
-                    }
-                    try {
-                        VirtualDisplayOverlay.getInstance(context).updatePreview(file.absolutePath)
-                    } catch (e: Exception) {
-                        AppLogger.e(TAG, "captureScreenshotForAgent: error updating virtual display preview", e)
                     }
                     return Pair("<link type=\"image\" id=\"$imageId\"></link>", dimensions)
                 }

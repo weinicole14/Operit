@@ -351,6 +351,11 @@ class DebuggerShellExecutor(private val context: Context) : ShellExecutor {
                                 processedCommand
                             }
 
+                    // 如果命令以单个'&'结尾（后台运行），我们只负责启动，不阻塞等待
+                    val trimmedForBg = enhancedCommand.trimEnd()
+                    val isBackground =
+                            trimmedForBg.endsWith("&") && !trimmedForBg.endsWith("&&")
+
                     // 构建shell命令，使用-e确保出错时立即退出
                     val shellArgs = arrayOf("sh", "-e", "-c", enhancedCommand)
                     AppLogger.d(TAG, "Enhanced shell command: ${shellArgs.joinToString(", ", "[", "]")}")
@@ -363,7 +368,6 @@ class DebuggerShellExecutor(private val context: Context) : ShellExecutor {
                                             "",
                                             "Failed to create process"
                                     )
-
                     // 处理输入输出流
                     val processClass = process::class.java
                     val inputStream =
@@ -372,6 +376,29 @@ class DebuggerShellExecutor(private val context: Context) : ShellExecutor {
                     val errorStream =
                             processClass.getMethod("getErrorStream").invoke(process) as
                                     ParcelFileDescriptor?
+
+                    if (isBackground) {
+                        AppLogger.d(TAG, "Detected background shell command (ending with '&'), not waiting for process")
+                        // 对于后台命令，我们不读取输出，也不等待退出，只要进程创建成功就视为成功
+                        try {
+                            inputStream?.close()
+                        } catch (e: Exception) {
+                            AppLogger.e(TAG, "Error closing input stream for background shell command", e)
+                        }
+
+                        try {
+                            errorStream?.close()
+                        } catch (e: Exception) {
+                            AppLogger.e(TAG, "Error closing error stream for background shell command", e)
+                        }
+
+                        return@withContext ShellExecutor.CommandResult(
+                                true,
+                                "",
+                                "",
+                                0
+                        )
+                    }
 
                     // 使用重试逻辑读取标准输出和错误输出
                     val stdout =
