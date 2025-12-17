@@ -55,9 +55,10 @@ object ShowerVideoRenderer {
             this.width = videoWidth
             this.height = videoHeight
             // Decoder will be (re)initialized lazily when the first csd buffers arrive.
+            // 注意：不要在这里清空 csd0/csd1，否则当 Surface 重新创建但服务器
+            // 不再发送 SPS/PPS 时，解码器将永远无法重新初始化，导致黑屏。
+            // 仅在此处释放旧 decoder，并清空待处理帧。
             releaseDecoderLocked()
-            csd0 = null
-            csd1 = null
             pendingFrames.clear()
         }
     }
@@ -66,8 +67,7 @@ object ShowerVideoRenderer {
         synchronized(lock) {
             releaseDecoderLocked()
             surface = null
-            csd0 = null
-            csd1 = null
+            // 不要清空 csd0/csd1，让后续重新 attach 时仍可用之前的 SPS/PPS，避免黑屏
             pendingFrames.clear()
         }
     }
@@ -176,9 +176,9 @@ object ShowerVideoRenderer {
                 }
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Decoder error on frame", e)
+                // 仅重置 decoder 与待处理帧，保留已捕获的 SPS/PPS（csd0/csd1），
+                // 这样后续新帧到来时可以重新初始化解码器，避免进入永久黑屏状态。
                 releaseDecoderLocked()
-                csd0 = null
-                csd1 = null
                 pendingFrames.clear()
             }
         }

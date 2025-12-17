@@ -50,8 +50,8 @@ import androidx.lifecycle.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.ai.assistance.operit.services.ServiceLifecycleOwner
 import com.ai.assistance.operit.util.AppLogger
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * PhoneAgent UI 自动化进度悬浮卡片。
@@ -74,6 +74,7 @@ class UIAutomationProgressOverlay private constructor(private val context: Conte
     private var windowManager: WindowManager? = null
     private var overlayView: ComposeView? = null
     private var lifecycleOwner: ServiceLifecycleOwner? = null
+    private var layoutParams: WindowManager.LayoutParams? = null
     private val handler = Handler(Looper.getMainLooper())
 
     data class ProgressInfo(
@@ -124,6 +125,8 @@ class UIAutomationProgressOverlay private constructor(private val context: Conte
                 gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
                 y = (16 * context.resources.displayMetrics.density).toInt()
             }
+
+            layoutParams = params
 
             lifecycleOwner = ServiceLifecycleOwner().apply {
                 handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
@@ -213,6 +216,7 @@ class UIAutomationProgressOverlay private constructor(private val context: Conte
                 overlayView = null
                 lifecycleOwner = null
                 windowManager = null
+                layoutParams = null
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Error hiding UIAutomationProgressOverlay", e)
             }
@@ -220,35 +224,36 @@ class UIAutomationProgressOverlay private constructor(private val context: Conte
     }
 
     /**
-     * 在截图或实际 UI 操作期间临时隐藏卡片（通过调整 alpha 实现）。
+     * 在截图或实际 UI 操作期间临时隐藏卡片（通过调整可见性实现）。
      */
-    fun setOverlayAlpha(alpha: Float) {
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            overlayView?.let { view ->
-                view.alpha = alpha
-                view.visibility = if (alpha == 0f || progressInfo == null) View.GONE else View.VISIBLE
-            }
-        } else {
-            val latch = CountDownLatch(1)
-            handler.post {
-                try {
-                    overlayView?.let { view ->
-                        view.alpha = alpha
-                        view.visibility = if (alpha == 0f || progressInfo == null) View.GONE else View.VISIBLE
-                    }
-                } catch (e: Exception) {
-                    AppLogger.e(TAG, "Error setting overlay alpha on main thread", e)
-                } finally {
-                    latch.countDown()
-                }
-            }
+    suspend fun setOverlayVisible(visible: Boolean) {
+        try {
+            withContext(Dispatchers.Main) {
+                val view = overlayView ?: return@withContext
+                val wm = windowManager ?: return@withContext
+                val params = (view.layoutParams as? WindowManager.LayoutParams) ?: layoutParams ?: return@withContext
 
-            try {
-                latch.await(200, TimeUnit.MILLISECONDS)
-            } catch (e: InterruptedException) {
-                AppLogger.e(TAG, "setOverlayAlpha interrupted", e)
-                Thread.currentThread().interrupt()
+                val shouldHide = !visible || progressInfo == null
+
+                if (shouldHide) {
+                    params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                } else {
+                    params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+                }
+
+                view.alpha = if (shouldHide) 0f else 1f
+                view.visibility = if (shouldHide) View.GONE else View.VISIBLE
+
+                try {
+                    wm.updateViewLayout(view, params)
+                } catch (e: Exception) {
+                    AppLogger.e(TAG, "Error updating overlay layout", e)
+                }
+
+                layoutParams = params
             }
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "Error setting overlay visibility", e)
         }
     }
 }

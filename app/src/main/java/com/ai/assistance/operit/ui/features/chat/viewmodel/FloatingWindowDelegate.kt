@@ -166,14 +166,6 @@ class FloatingWindowDelegate(
 
                 // Update UI busy state directly on the window state
                 // floatingService?.windowState?.isUiBusy?.value = isUiToolExecuting
-
-                if (isUiToolExecuting) {
-                    AppLogger.d(TAG, "UI tool executing, disabling window interaction.")
-                    floatingService?.setWindowInteraction(false)
-                } else {
-                    AppLogger.d(TAG, "State is ${state::class.simpleName}, enabling window interaction.")
-                    floatingService?.setWindowInteraction(true)
-                }
             }
         }
     }

@@ -754,10 +754,13 @@ private fun AccessibilityPermissionSection(
                 val isFullyEnabled =
                         isAccessibilityProviderInstalled && hasAccessibilityServiceEnabled
                 val onClickAction =
-                        if (!isAccessibilityProviderInstalled) {
-                            {}
-                        } else {
-                            onAccessibilityClick
+                        when {
+                            // 需要更新时，触发向导展开/收起
+                            isAccessibilityUpdateNeeded -> onAccessibilityClick
+                            // 未安装时，点击无效
+                            !isAccessibilityProviderInstalled -> onInstallAccessibilityProviderClick
+                            // 其他情况（已安装且无需更新），跳转到系统设置
+                            else -> onAccessibilityClick
                         }
 
                 Row(
@@ -1158,10 +1161,13 @@ private fun DebuggerPermissionSection(
             ) {
                 val isFullyEnabled = isAccessibilityProviderInstalled && hasAccessibilityServiceEnabled
                 val onClickAction =
-                        if (!isAccessibilityProviderInstalled) {
-                            {}
-                        } else {
-                            onAccessibilityClick
+                        when {
+                            // 需要更新时，触发向导展开/收起
+                            isAccessibilityUpdateNeeded -> onAccessibilityClick
+                            // 未安装时，点击无效
+                            !isAccessibilityProviderInstalled -> onInstallAccessibilityProviderClick
+                            // 其他情况（已安装且无需更新），跳转到系统设置
+                            else -> onAccessibilityClick
                         }
 
                 Row(

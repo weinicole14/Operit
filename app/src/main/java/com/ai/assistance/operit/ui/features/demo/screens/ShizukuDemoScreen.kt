@@ -150,7 +150,15 @@ fun ShizukuDemoScreen(
                 isAccessibilityProviderInstalled = uiState.isAccessibilityProviderInstalled.value,
                 isAccessibilityUpdateNeeded = isAccessibilityUpdateNeeded,
                 isRefreshing = uiState.isRefreshing.value,
-                onRefresh = { scope.launch(Dispatchers.IO) { viewModel.refreshStatus(context) } },
+                onRefresh = {
+                    scope.launch(Dispatchers.IO) {
+                        // 手动刷新时，清除版本缓存以获取最新状态
+                        AccessibilityProviderInstaller.clearCache()
+                        ShizukuInstaller.clearCache()
+                        AppLogger.d("ShizukuDemoScreen", "手动刷新：已清除无障碍和Shizuku版本缓存")
+                        viewModel.refreshStatus(context)
+                    }
+                },
                 onStoragePermissionClick = {
                     try {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {

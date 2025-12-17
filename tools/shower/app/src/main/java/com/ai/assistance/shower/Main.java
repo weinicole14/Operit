@@ -53,6 +53,8 @@ public class Main {
     private static final int VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY = DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY;
     private static final int VIRTUAL_DISPLAY_FLAG_SUPPORTS_TOUCH = 1 << 6;
     private static final int VIRTUAL_DISPLAY_FLAG_ROTATES_WITH_CONTENT = 1 << 7;
+    private static final int VIRTUAL_DISPLAY_FLAG_DESTROY_CONTENT_ON_REMOVAL = 1 << 8;
+    private static final int VIRTUAL_DISPLAY_FLAG_SHOULD_SHOW_SYSTEM_DECORATIONS = 1 << 9;
     private static final int VIRTUAL_DISPLAY_FLAG_TRUSTED = 1 << 10;
     private static final int VIRTUAL_DISPLAY_FLAG_OWN_DISPLAY_GROUP = 1 << 11;
     private static final int VIRTUAL_DISPLAY_FLAG_ALWAYS_UNLOCKED = 1 << 12;
@@ -211,6 +213,8 @@ public class Main {
         }
         InetSocketAddress address = new InetSocketAddress("127.0.0.1", DEFAULT_PORT);
         server = new ScreenWebSocketServer(address);
+        // Set connection loss timeout to 15 seconds.
+        server.setConnectionLostTimeout(15);
         server.start();
         Log.i(TAG, "WebSocket server starting on " + address);
         logToFile("WebSocket server starting on " + address, null);
@@ -274,7 +278,9 @@ public class Main {
                     | VIRTUAL_DISPLAY_FLAG_PRESENTATION
                     | VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY
                     | VIRTUAL_DISPLAY_FLAG_SUPPORTS_TOUCH
-                    | VIRTUAL_DISPLAY_FLAG_ROTATES_WITH_CONTENT;
+                    | VIRTUAL_DISPLAY_FLAG_ROTATES_WITH_CONTENT
+                    | VIRTUAL_DISPLAY_FLAG_DESTROY_CONTENT_ON_REMOVAL
+                    | VIRTUAL_DISPLAY_FLAG_SHOULD_SHOW_SYSTEM_DECORATIONS;
 
             if (Build.VERSION.SDK_INT >= 33) {
                 flags |= VIRTUAL_DISPLAY_FLAG_TRUSTED
@@ -567,6 +573,18 @@ public class Main {
         @Override
         public void onClose(WebSocket conn, int code, String reason, boolean remote) {
             Log.i(TAG, "WebSocket client disconnected: code=" + code + ", reason=" + reason);
+            new Thread(() -> {
+                try {
+                    Thread.sleep(15000);
+                    if (getConnections().isEmpty()) {
+                        Log.i(TAG, "Last WebSocket client disconnected,trying to stop server");
+                        stopServer();
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }).start();
+            
         }
 
         @Override

@@ -43,7 +43,10 @@ class UIDebuggerService : Service(), ViewModelStoreOwner {
             val chatService = binder.getService()
             floatingChatService = chatService
             isBound = true
-            viewModel.setWindowInteractionController(chatService::setWindowInteraction)
+            viewModel.setWindowInteractionController { visible ->
+                // 控制悬浮窗的可见性，从而控制其可交互性
+                chatService.setFloatingWindowVisible(visible)
+            }
         }
 
         override fun onServiceDisconnected(arg0: ComponentName) {

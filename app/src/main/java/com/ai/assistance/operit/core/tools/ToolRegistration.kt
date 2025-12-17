@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import com.ai.assistance.operit.api.chat.EnhancedAIService
+import com.ai.assistance.operit.services.FloatingChatService
 import com.google.gson.Gson
 import kotlinx.coroutines.flow.map
 import com.ai.assistance.operit.integrations.tasker.triggerAIAgentAction
@@ -26,6 +27,23 @@ import com.ai.assistance.operit.integrations.tasker.triggerAIAgentAction
  * @param context Application context for tools that need it
  */
 fun registerAllTools(handler: AIToolHandler, context: Context) {
+
+    // Helper function to wrap UI tool execution with visibility changes
+    suspend fun executeUiToolWithVisibility(
+        tool: AITool,
+        action: suspend (AITool) -> ToolResult
+    ): ToolResult {
+        val floatingService = FloatingChatService.getInstance()
+        return try {
+            floatingService?.setFloatingWindowVisible(false)
+            floatingService?.setStatusIndicatorVisible(true)
+            delay(50) // Allow UI to update
+            action(tool)
+        } finally {
+            floatingService?.setFloatingWindowVisible(true)
+            floatingService?.setStatusIndicatorVisible(false)
+        }
+    }
 
 
     // 不在提示词加入的工具
@@ -633,7 +651,11 @@ fun registerAllTools(handler: AIToolHandler, context: Context) {
                     else -> "点击元素"
                 }
             },
-            executor = { tool -> runBlocking(Dispatchers.IO) { uiTools.clickElement(tool) } }
+            executor = { tool ->
+                runBlocking(Dispatchers.IO) {
+                    executeUiToolWithVisibility(tool) { uiTools.clickElement(it) }
+                }
+            }
     )
 
     // 点击屏幕坐标
@@ -644,7 +666,11 @@ fun registerAllTools(handler: AIToolHandler, context: Context) {
                 val y = tool.parameters.find { it.name == "y" }?.value ?: "?"
                 "点击屏幕坐标 ($x, $y)"
             },
-            executor = { tool -> runBlocking(Dispatchers.IO) { uiTools.tap(tool) } }
+            executor = { tool ->
+                runBlocking(Dispatchers.IO) {
+                    executeUiToolWithVisibility(tool) { uiTools.tap(it) }
+                }
+            }
     )
 
     handler.registerTool(
@@ -654,7 +680,11 @@ fun registerAllTools(handler: AIToolHandler, context: Context) {
                 val y = tool.parameters.find { it.name == "y" }?.value ?: "?"
                 "长按屏幕坐标 ($x, $y)"
             },
-            executor = { tool -> runBlocking(Dispatchers.IO) { uiTools.longPress(tool) } }
+            executor = { tool ->
+                runBlocking(Dispatchers.IO) {
+                    executeUiToolWithVisibility(tool) { uiTools.longPress(it) }
+                }
+            }
     )
 
     // HTTP请求工具
@@ -1095,7 +1125,11 @@ fun registerAllTools(handler: AIToolHandler, context: Context) {
                 val text = tool.parameters.find { it.name == "text" }?.value ?: ""
                 "设置输入文本: $text"
             },
-            executor = { tool -> runBlocking(Dispatchers.IO) { uiTools.setInputText(tool) } }
+            executor = { tool ->
+                runBlocking(Dispatchers.IO) {
+                    executeUiToolWithVisibility(tool) { uiTools.setInputText(it) }
+                }
+            }
     )
 
     // 按下特定按键
@@ -1105,7 +1139,11 @@ fun registerAllTools(handler: AIToolHandler, context: Context) {
                 val keyCode = tool.parameters.find { it.name == "key_code" }?.value ?: ""
                 "按下按键: $keyCode"
             },
-            executor = { tool -> runBlocking(Dispatchers.IO) { uiTools.pressKey(tool) } }
+            executor = { tool ->
+                runBlocking(Dispatchers.IO) {
+                    executeUiToolWithVisibility(tool) { uiTools.pressKey(it) }
+                }
+            }
     )
 
     // 执行滑动手势
@@ -1118,7 +1156,11 @@ fun registerAllTools(handler: AIToolHandler, context: Context) {
                 val endY = tool.parameters.find { it.name == "end_y" }?.value ?: "?"
                 "滑动: ($startX,$startY) -> ($endX,$endY)"
             },
-            executor = { tool -> runBlocking(Dispatchers.IO) { uiTools.swipe(tool) } }
+            executor = { tool ->
+                runBlocking(Dispatchers.IO) {
+                    executeUiToolWithVisibility(tool) { uiTools.swipe(it) }
+                }
+            }
     )
 
 

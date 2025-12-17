@@ -29,7 +29,7 @@ class UIDebuggerViewModel : ViewModel() {
     private lateinit var toolHandler: AIToolHandler
     private var statusBarHeight: Int = 0
     private val TAG = "UIDebuggerViewModel"
-    private var windowInteractionController: ((Boolean) -> Unit)? = null
+    private var windowInteractionController: (suspend (Boolean) -> Unit)? = null
     private lateinit var context: Context
     
     // Activity监听相关
@@ -61,7 +61,7 @@ class UIDebuggerViewModel : ViewModel() {
     /**
      * 设置窗口交互控制器
      */
-    fun setWindowInteractionController(controller: ((Boolean) -> Unit)?) {
+    fun setWindowInteractionController(controller: (suspend (Boolean) -> Unit)?) {
         this.windowInteractionController = controller
     }
 

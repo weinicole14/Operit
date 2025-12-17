@@ -40,6 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class FloatingChatService : Service(), FloatingWindowCallback {
     private val TAG = "FloatingChatService"
@@ -571,18 +572,47 @@ class FloatingChatService : Service(), FloatingWindowCallback {
         AppLogger.d(TAG, "Switching to mode: $mode")
     }
 
-    fun setWindowInteraction(enabled: Boolean) {
+    suspend fun setFloatingWindowVisible(visible: Boolean) {
         if (::windowManager.isInitialized) {
-            windowManager.setWindowInteraction(enabled)
-            AppLogger.d(TAG, "Window interaction set to: $enabled")
+            withContext(Dispatchers.Main) {
+                windowManager.setFloatingWindowVisible(visible)
+                AppLogger.d(TAG, "Floating window visible set to: $visible")
+            }
         } else {
-            AppLogger.w(TAG, "WindowManager not initialized, cannot set interaction.")
+            AppLogger.w(TAG, "WindowManager not initialized, cannot set floating window visibility.")
         }
     }
 
-    fun setStatusIndicatorAlpha(alpha: Float) {
+    suspend fun setFloatingWindowPersistentHidden(hidden: Boolean) {
         if (::windowManager.isInitialized) {
-            windowManager.setStatusIndicatorAlpha(alpha)
+            withContext(Dispatchers.Main) {
+                windowManager.setFloatingWindowPersistentHidden(hidden)
+                AppLogger.d(TAG, "Floating window persistent hidden set to: $hidden")
+            }
+        } else {
+            AppLogger.w(TAG, "WindowManager not initialized, cannot set floating window persistent hidden.")
+        }
+    }
+
+    suspend fun setStatusIndicatorVisible(visible: Boolean) {
+        if (::windowManager.isInitialized) {
+            withContext(Dispatchers.Main) {
+                windowManager.setStatusIndicatorVisible(visible)
+                AppLogger.d(TAG, "Status indicator visible set to: $visible")
+            }
+        } else {
+            AppLogger.w(TAG, "WindowManager not initialized, cannot set status indicator visibility.")
+        }
+    }
+
+    suspend fun setStatusIndicatorPersistentVisible(visible: Boolean) {
+        if (::windowManager.isInitialized) {
+            withContext(Dispatchers.Main) {
+                windowManager.setStatusIndicatorPersistentVisible(visible)
+                AppLogger.d(TAG, "Status indicator persistent visible set to: $visible")
+            }
+        } else {
+            AppLogger.w(TAG, "WindowManager not initialized, cannot set persistent status indicator visibility.")
         }
     }
 

@@ -73,12 +73,13 @@ object ShowerServerManager {
             )
             return false
         }
-
-        for (attempt in 0 until 10) {
+        // Poll for up to 10 seconds for the server to start.
+        for (attempt in 0 until 50) { // 50 * 200ms = 10s
+            kotlinx.coroutines.delay(200)
             if (isServerListening()) {
                 AppLogger.d(
                     TAG,
-                    "Shower server is now listening on 127.0.0.1:8765 after ${attempt + 1} checks"
+                    "Shower server is now listening on 127.0.0.1:8765 after ~${(attempt + 1) * 200}ms"
                 )
                 return true
             }

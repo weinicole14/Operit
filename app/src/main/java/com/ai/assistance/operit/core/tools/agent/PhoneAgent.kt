@@ -11,6 +11,7 @@ import com.ai.assistance.operit.data.model.AITool
 import com.ai.assistance.operit.data.model.ToolParameter
 import com.ai.assistance.operit.data.model.ToolResult
 import com.ai.assistance.operit.data.preferences.androidPermissionPreferences
+import com.ai.assistance.operit.services.FloatingChatService
 import com.ai.assistance.operit.ui.common.displays.UIAutomationProgressOverlay
 import com.ai.assistance.operit.ui.common.displays.VirtualDisplayOverlay
 import com.ai.assistance.operit.util.AppLogger
@@ -81,39 +82,80 @@ class PhoneAgent(
      * @param onStep Optional callback invoked after each step with the StepResult.
      * @return Final message from the agent.
      */
-    suspend fun run(
+        suspend fun run(
         task: String,
         systemPrompt: String,
         onStep: (suspend (StepResult) -> Unit)? = null,
         isPausedFlow: StateFlow<Boolean>? = null
     ): String {
-        reset()
-        _contextHistory.add("system" to systemPrompt)
-        pauseFlow = isPausedFlow
+        val floatingService = FloatingChatService.getInstance()
+        val progressOverlay = UIAutomationProgressOverlay.getInstance(context)
 
-        // First step with user prompt
-        awaitIfPaused()
-        var result = _executeStep(task, isFirst = true)
-        onStep?.invoke(result)
-
-        if (result.finished) {
-            return result.message ?: "Task completed"
+        val hasShowerDisplayAtStart = try {
+            ShowerController.getDisplayId() != null || ShowerController.getVideoSize() != null
+        } catch (e: Exception) {
+            AppLogger.e("PhoneAgent", "Error checking Shower virtual display state", e)
+            false
         }
 
-        // Continue until finished or max steps reached
-        while (_stepCount < config.maxSteps) {
+        try {
+            // Setup UI for agent run: hide window, then choose indicator based on whether Shower virtual display is active
+            floatingService?.setFloatingWindowVisible(false)
+            if (hasShowerDisplayAtStart) {
+                try {
+                    val overlay = VirtualDisplayOverlay.getInstance(context)
+                    overlay.setShowerBorderVisible(true)
+                } catch (e: Exception) {
+                    AppLogger.e("PhoneAgent", "Error enabling virtual display border indicator at start", e)
+                }
+            } else {
+                floatingService?.setStatusIndicatorVisible(true)
+            }
+            progressOverlay.show(
+                config.maxSteps,
+                "Thinking...",
+                onCancel = { /* Cancellation is handled by the caller's job */ },
+                onToggleTakeOver = { isPaused -> (isPausedFlow as? kotlinx.coroutines.flow.MutableStateFlow)?.value = isPaused }
+            )
+
+            reset()
+            _contextHistory.add("system" to systemPrompt)
+            pauseFlow = isPausedFlow
+
+            // First step with user prompt
             awaitIfPaused()
-            result = _executeStep(null, isFirst = false)
+            var result = _executeStep(task, isFirst = true)
             onStep?.invoke(result)
 
             if (result.finished) {
-                pauseFlow = null
                 return result.message ?: "Task completed"
             }
-        }
 
-        pauseFlow = null
-        return "Max steps reached"
+            // Continue until finished or max steps reached
+            while (_stepCount < config.maxSteps) {
+                awaitIfPaused()
+                result = _executeStep(null, isFirst = false)
+                onStep?.invoke(result)
+
+                if (result.finished) {
+                    return result.message ?: "Task completed"
+                }
+            }
+
+            return "Max steps reached"
+        } finally {
+            // Restore UI after agent run: show window, hide any indicators, hide progress
+            pauseFlow = null
+            floatingService?.setFloatingWindowVisible(true)
+            try {
+                val overlay = VirtualDisplayOverlay.getInstance(context)
+                overlay.setShowerBorderVisible(false)
+            } catch (e: Exception) {
+                AppLogger.e("PhoneAgent", "Error disabling virtual display border indicator", e)
+            }
+            floatingService?.setStatusIndicatorVisible(false)
+            progressOverlay.hide()
+        }
     }
 
     /** Reset the agent state for a new task. */
@@ -314,37 +356,46 @@ class ActionHandler(
         return ShowerUsageContext(isAdbOrHigher = isAdbOrHigher, showerDisplayId = showerId)
     }
 
-    suspend fun captureScreenshotForAgent(): String? {
-        val showerCtx = resolveShowerUsageContext()
+        suspend fun captureScreenshotForAgent(): String? {
+        val floatingService = FloatingChatService.getInstance()
+        val progressOverlay = UIAutomationProgressOverlay.getInstance(context)
 
-        var screenshotLink: String? = null
-        var dimensions: Pair<Int, Int>? = null
+        try {
+            // Hide UI elements for the screenshot
+            floatingService?.setStatusIndicatorVisible(false)
+            progressOverlay.setOverlayVisible(false)
+            delay(50) // Give UI time to update
 
-        // 优先尝试通过 Shower WebSocket 截图虚拟屏
-        if (showerCtx.canUseShowerForInput) {
-            val (link, dims) = captureScreenshotViaShower()
-            screenshotLink = link
-            dimensions = dims
-        }
+            val showerCtx = resolveShowerUsageContext()
+            var screenshotLink: String? = null
+            var dimensions: Pair<Int, Int>? = null
 
-        // 如果 Shower 截图不可用，则回退到工具层的通用截图实现
-        if (screenshotLink == null) {
-            val screenshotTool = buildScreenshotTool()
-            val (fallbackLink, fallbackDims) = toolImplementations.captureScreenshot(screenshotTool)
-            if (screenshotLink == null) {
-                screenshotLink = fallbackLink
+            // 优先尝试通过 Shower WebSocket 截图虚拟屏
+            if (showerCtx.canUseShowerForInput) {
+                val (link, dims) = captureScreenshotViaShower()
+                screenshotLink = link
+                dimensions = dims
             }
-            if (dimensions == null) {
+
+            // 如果 Shower 截图不可用，则回退到工具层的通用截图实现
+            if (screenshotLink == null) {
+                val screenshotTool = buildScreenshotTool()
+                val (fallbackLink, fallbackDims) = toolImplementations.captureScreenshot(screenshotTool)
+                screenshotLink = fallbackLink
                 dimensions = fallbackDims
             }
-        }
 
-        if (dimensions != null) {
-            screenWidth = dimensions.first
-            screenHeight = dimensions.second
-            AppLogger.d("ActionHandler", "Updated screen dimensions from screenshot: w=$screenWidth, h=$screenHeight")
+            if (dimensions != null) {
+                screenWidth = dimensions.first
+                screenHeight = dimensions.second
+                AppLogger.d("ActionHandler", "Updated screen dimensions from screenshot: w=$screenWidth, h=$screenHeight")
+            }
+            return screenshotLink
+        } finally {
+            // Restore UI elements after the screenshot
+            floatingService?.setStatusIndicatorVisible(true)
+            progressOverlay.setOverlayVisible(true)
         }
-        return screenshotLink
     }
 
     private fun buildScreenshotTool(): AITool {
@@ -403,15 +454,12 @@ class ActionHandler(
         }
     }
 
-    suspend fun executeAgentAction(parsed: ParsedAgentAction): ActionExecResult {
+        suspend fun executeAgentAction(parsed: ParsedAgentAction): ActionExecResult {
         val actionName = parsed.actionName ?: return fail(message = "Missing action name")
         val fields = parsed.fields
 
-        val progressOverlay = UIAutomationProgressOverlay.getInstance(context)
-        return try {
-            progressOverlay.setOverlayAlpha(0f)
-            val showerCtx = resolveShowerUsageContext()
-            when (actionName) {
+        val showerCtx = resolveShowerUsageContext()
+        return when (actionName) {
                 "Launch" -> {
                     val app = fields["app"]?.takeIf { it.isNotBlank() } ?: return fail(message = "No app name specified for Launch")
                     val packageName = resolveAppPackageName(app)
@@ -425,7 +473,8 @@ class ActionHandler(
                             val height = metrics.heightPixels
                             val dpi = metrics.densityDpi
 
-                            val created = ShowerController.ensureDisplay(width, height, dpi, bitrateKbps = 1500)
+                            // 提升 Shower 虚拟屏幕的视频码率，改善画质与文字清晰度
+                            val created = ShowerController.ensureDisplay(width, height, dpi, bitrateKbps = 6000)
                             val launched = if (created) ShowerController.launchApp(packageName) else false
 
                             if (created && launched) {
@@ -519,9 +568,6 @@ class ActionHandler(
                 "Take_over" -> ok(shouldFinish = true, message = fields["message"] ?: "User takeover required")
                 else -> fail(message = "Unknown action: $actionName")
             }
-        } finally {
-            progressOverlay.setOverlayAlpha(1f)
-        }
     }
 
     private suspend fun ensureVirtualDisplayIfAdbOrHigher() {
@@ -542,11 +588,20 @@ class ActionHandler(
             val ok = ShowerServerManager.ensureServerStarted(context)
             if (ok) {
                 // We do not know the concrete display id from here yet, but we still show the overlay
-                // to indicate that a virtual display session is active.
+                // to indicate that a virtual display session is active, and switch indicators to the
+                // virtual display border instead of the fullscreen floating window indicator.
                 try {
-                    VirtualDisplayOverlay.getInstance(context).show(0)
+                    val overlay = VirtualDisplayOverlay.getInstance(context)
+                    overlay.show(0)
+                    overlay.setShowerBorderVisible(true)
                 } catch (e: Exception) {
                     AppLogger.e("ActionHandler", "Error showing Shower virtual display overlay", e)
+                }
+                try {
+                    val floatingService = FloatingChatService.getInstance()
+                    floatingService?.setStatusIndicatorVisible(false)
+                } catch (e: Exception) {
+                    AppLogger.e("ActionHandler", "Error hiding fullscreen status indicator after starting Shower virtual display", e)
                 }
                 AppLogger.d("ActionHandler", "Shower virtual display server started via AndroidShellExecutor")
             } else {

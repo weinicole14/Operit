@@ -513,58 +513,42 @@ open class StandardUITools(protected val context: Context) : ToolImplementations
             val shortName = System.currentTimeMillis().toString().takeLast(4)
             val file = File(screenshotDir, "$shortName.png")
 
-            val floatingService = FloatingChatService.getInstance()
-            val progressOverlay = UIAutomationProgressOverlay.getInstance(context)
+            var usedVirtual = false
+
+            // 1) 如果存在基于 VirtualDisplayManager 的虚拟显示，优先从中抓帧
             try {
-                // Temporarily hide the floating status indicator from screenshots (on main thread)
-                withContext(Dispatchers.Main) {
-                    floatingService?.setStatusIndicatorAlpha(0f)
-                    progressOverlay.setOverlayAlpha(0f)
+                val manager = VirtualDisplayManager.getInstance(context)
+                val id = manager.getDisplayId()
+                if (id != null && manager.captureLatestFrameToFile(file)) {
+                    AppLogger.d(TAG, "captureScreenshotForAgent: captured from legacy virtual display $id via ImageReader")
+                    usedVirtual = true
                 }
-                // Give the system a brief moment to commit the alpha change to the compositor
-                delay(50)
-                var usedVirtual = false
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "captureScreenshotForAgent: error capturing from legacy virtual display", e)
+            }
 
-                // 1) 如果存在基于 VirtualDisplayManager 的虚拟显示，优先从中抓帧
-                try {
-                    val manager = VirtualDisplayManager.getInstance(context)
-                    val id = manager.getDisplayId()
-                    if (id != null && manager.captureLatestFrameToFile(file)) {
-                        AppLogger.d(TAG, "captureScreenshotForAgent: captured from legacy virtual display $id via ImageReader")
-                        usedVirtual = true
-                    }
-                } catch (e: Exception) {
-                    AppLogger.e(TAG, "captureScreenshotForAgent: error capturing from legacy virtual display", e)
-                }
-
-                // 2) 仍未成功，则回退到主屏 screencap
-                if (!usedVirtual) {
-                    val result = AndroidShellExecutor.executeShellCommand("screencap -p ${file.absolutePath}")
-                    if (!result.success) {
-                        AppLogger.w(TAG, "captureScreenshotForAgent: screencap failed: ${result.stderr}")
-                        return Pair(null, null)
-                    }
-                }
-
-                val imageId = ImagePoolManager.addImage(file.absolutePath)
-                if (imageId == "error") {
-                    AppLogger.e(TAG, "captureScreenshotForAgent: failed to register image: ${file.absolutePath}")
+            // 2) 仍未成功，则回退到主屏 screencap
+            if (!usedVirtual) {
+                val result = AndroidShellExecutor.executeShellCommand("screencap -p ${file.absolutePath}")
+                if (!result.success) {
+                    AppLogger.w(TAG, "captureScreenshotForAgent: screencap failed: ${result.stderr}")
                     return Pair(null, null)
+                }
+            }
+
+            val imageId = ImagePoolManager.addImage(file.absolutePath)
+            if (imageId == "error") {
+                AppLogger.e(TAG, "captureScreenshotForAgent: failed to register image: ${file.absolutePath}")
+                return Pair(null, null)
+            } else {
+                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(file.absolutePath, options)
+                val dimensions = if (options.outWidth > 0 && options.outHeight > 0) {
+                    Pair(options.outWidth, options.outHeight)
                 } else {
-                    val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                    BitmapFactory.decodeFile(file.absolutePath, options)
-                    val dimensions = if (options.outWidth > 0 && options.outHeight > 0) {
-                        Pair(options.outWidth, options.outHeight)
-                    } else {
-                        null
-                    }
-                    return Pair("<link type=\"image\" id=\"$imageId\"></link>", dimensions)
+                    null
                 }
-            } finally {
-                withContext(Dispatchers.Main) {
-                    floatingService?.setStatusIndicatorAlpha(1f)
-                    progressOverlay.setOverlayAlpha(1f)
-                }
+                return Pair("<link type=\"image\" id=\"$imageId\"></link>", dimensions)
             }
         } catch (e: Exception) {
             AppLogger.e(TAG, "captureScreenshot failed", e)

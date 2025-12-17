@@ -40,6 +40,8 @@ import com.ai.assistance.operit.util.LocaleUtils
 import com.ai.assistance.operit.util.SerializationSetup
 import com.ai.assistance.operit.util.TextSegmenter
 import com.ai.assistance.operit.util.WaifuMessageProcessor
+import com.ai.assistance.operit.core.tools.agent.ShowerController
+import com.ai.assistance.operit.ui.common.displays.VirtualDisplayOverlay
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
@@ -359,6 +361,18 @@ class OperitApplication : Application(), ImageLoaderFactory, WorkConfiguration.P
             }
         } catch (e: Exception) {
             AppLogger.e(TAG, "关闭本地Web服务器失败: ${e.message}", e)
+        }
+
+        // 在应用终止时，关闭虚拟屏幕 Overlay 并断开 Shower WebSocket 连接
+        try {
+            VirtualDisplayOverlay.getInstance(applicationContext).hide()
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "终止时隐藏 VirtualDisplayOverlay 失败: ${e.message}", e)
+        }
+        try {
+            ShowerController.shutdown()
+        } catch (e: Exception) {
+            AppLogger.e(TAG, "终止时关闭 ShowerController 失败: ${e.message}", e)
         }
     }
 }

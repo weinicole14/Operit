@@ -105,6 +105,10 @@ class FloatingWindowManager(
     private var isViewAdded = false
     private var isIndicatorAdded = false
     private var sizeAnimator: ValueAnimator? = null
+    private var windowDisplayEnabled: Boolean = true
+    private var windowPersistentHidden: Boolean = false
+    private var indicatorDisplayEnabled: Boolean = true
+    private var indicatorPersistentEnabled: Boolean = false
 
     companion object {
         // Private flag to disable window move animations
@@ -193,32 +197,56 @@ class FloatingWindowManager(
         )
     }
 
-    fun setWindowInteraction(enabled: Boolean) {
-        composeView?.let { view ->
-            val currentMode = state.currentMode.value
-            if (enabled) {
-                // Always make it visible when interaction is enabled
-                view.visibility = View.VISIBLE
-                hideStatusIndicator()
+    fun setFloatingWindowVisible(visible: Boolean) {
+        windowDisplayEnabled = visible
+        refreshWindowAndIndicatorVisibility()
+        AppLogger.d(TAG, "Floating window visibility set to: $visible.")
+    }
+
+    fun setFloatingWindowPersistentHidden(hidden: Boolean) {
+        windowPersistentHidden = hidden
+        refreshWindowAndIndicatorVisibility()
+        AppLogger.d(TAG, "Floating window persistent hidden set to: $hidden.")
+    }
+
+    fun setStatusIndicatorVisible(visible: Boolean) {
+        indicatorDisplayEnabled = visible
+        refreshWindowAndIndicatorVisibility()
+        AppLogger.d(TAG, "Status indicator visibility set to: $visible.")
+    }
+
+    fun setStatusIndicatorPersistentVisible(visible: Boolean) {
+        indicatorPersistentEnabled = visible
+        refreshWindowAndIndicatorVisibility()
+        AppLogger.d(TAG, "Status indicator persistent visibility set to: $visible.")
+    }
+
+    private fun refreshWindowAndIndicatorVisibility() {
+        val currentMode = state.currentMode.value
+        val view = composeView
+
+        val windowVisible = !windowPersistentHidden && windowDisplayEnabled
+
+        view?.let { v ->
+            v.visibility = if (windowVisible) View.VISIBLE else View.GONE
+            if (windowVisible) {
                 updateViewLayout { params ->
-                    // Restore interactiveness by removing the flag
                     params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
                 }
-                AppLogger.d(TAG, "Floating window interaction enabled.")
-            } else { // Interaction is disabled
-                if (currentMode == FloatingMode.FULLSCREEN || currentMode == FloatingMode.WINDOW) {
-                    // For fullscreen or window mode, hide the view completely to avoid interfering with screen capture
-                    view.visibility = View.GONE
-                    showStatusIndicator()
-                    AppLogger.d(TAG, "Floating window view hidden for $currentMode mode, showing status indicator.")
-                } else {
-                    // For other modes, just make it non-touchable but keep it visible for the overlay
-                    updateViewLayout { params ->
-                        params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                    }
-                    AppLogger.d(TAG, "Floating window interaction disabled for mode: $currentMode.")
-                }
             }
+        }
+
+        val indicatorShouldShow = when {
+            !indicatorDisplayEnabled && !indicatorPersistentEnabled -> false
+            indicatorPersistentEnabled -> true
+            else -> !windowVisible &&
+                    (currentMode == FloatingMode.FULLSCREEN || currentMode == FloatingMode.WINDOW)
+        }
+
+        if (indicatorShouldShow) {
+            showStatusIndicator()
+        } else {
+            hideStatusIndicator()
         }
     }
 
