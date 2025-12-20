@@ -63,6 +63,7 @@ class WebViewHandler(private val context: Context) {
     var onTitleReceived: ((title: String?) -> Unit)? = null
     var onPageStarted: ((tabId: String) -> Unit)? = null
     var onPageFinished: ((tabId: String) -> Unit)? = null
+    var onCanGoBackChanged: ((Boolean) -> Unit)? = null
 
 
     // 通过JavaScript接口处理Blob/Base64数据下载
@@ -199,6 +200,8 @@ class WebViewHandler(private val context: Context) {
 
                 // 注入Blob下载辅助代码
                 view?.let { injectBlobDownloadHelper(it) }
+
+                onCanGoBackChanged?.invoke(view?.canGoBack() == true)
 
                 // 仅在COMPUTER模式下注入JS以强制桌面视口
                 if (mode == WebViewMode.COMPUTER) {

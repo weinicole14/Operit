@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import com.ai.assistance.operit.util.AppLogger
 import android.view.MotionEvent
 import android.webkit.WebView
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -120,6 +121,14 @@ fun WorkspaceManager(
                     loadUrl(workspaceConfig.preview.url.ifEmpty { "http://localhost:8093" })
                 }
             }
+
+    var canWebViewGoBack by remember { mutableStateOf(false) }
+
+    LaunchedEffect(webViewHandler) {
+        webViewHandler.onCanGoBackChanged = { canGoBack ->
+            canWebViewGoBack = canGoBack
+        }
+    }
 
     // 文件管理和标签状态 - 使用 rememberLocal 进行持久化
     var showFileManager by remember { mutableStateOf(false) }
@@ -267,6 +276,18 @@ fun WorkspaceManager(
 
     // 新的布局根节点，使用Box来支持FAB和底部面板的覆盖
     Box(modifier = Modifier.fillMaxSize()) {
+        val isBrowserPreviewVisible = isVisible && currentFileIndex == -1 && workspaceConfig.preview.type == "browser"
+
+        BackHandler(enabled = isBrowserPreviewVisible && canWebViewGoBack) {
+            if (canWebViewGoBack) {
+                try {
+                    webView.goBack()
+                } catch (e: Exception) {
+                    AppLogger.e("WorkspaceManager", "Failed to navigate WebView back", e)
+                }
+            }
+        }
+
         Column(modifier = Modifier.fillMaxSize()) {
             // 整合后的顶部栏：标签 + 动态操作
             Surface(

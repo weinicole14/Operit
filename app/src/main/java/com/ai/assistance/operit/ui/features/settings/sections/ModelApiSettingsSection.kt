@@ -241,7 +241,20 @@ fun ModelApiSettingsSection(
         } else {
             showRegionWarning = false
         }
-        if (apiEndpointInput.isEmpty() || isDefaultApiEndpoint(apiEndpointInput)) {
+
+        // 非通用供应商（有强制端点的）切换时，强制重置为该供应商默认端点，避免从“其他供应商”等通用配置带入自定义值
+        val isGenericProviderForEndpoint =
+            selectedApiProvider == ApiProviderType.OPENAI_GENERIC ||
+            selectedApiProvider == ApiProviderType.OTHER ||
+            selectedApiProvider == ApiProviderType.GEMINI_GENERIC
+
+        if (isGenericProviderForEndpoint) {
+            // 通用供应商仍保留原逻辑：只有在为空或当前就是某个默认端点时才写入默认值
+            if (apiEndpointInput.isEmpty() || isDefaultApiEndpoint(apiEndpointInput)) {
+                apiEndpointInput = getDefaultApiEndpoint(selectedApiProvider)
+            }
+        } else {
+            // 有强制内容的供应商：直接覆盖为该供应商默认端点，实现清空+填充+锁定的效果
             apiEndpointInput = getDefaultApiEndpoint(selectedApiProvider)
         }
     }
@@ -288,9 +301,16 @@ fun ModelApiSettingsSection(
                         onDismissRequest = { showApiProviderDialog = false },
                         onProviderSelected = { provider ->
                             selectedApiProvider = provider
-                            if (modelNameInput.isEmpty() || isDefaultModelName(modelNameInput)) {
+
+                            // 对有默认模型名的供应商，视为“有强制内容”：切换时总是重置为该供应商默认模型名
+                            val hasForcedModelName = getDefaultModelName(provider).isNotEmpty()
+                            if (hasForcedModelName) {
+                                modelNameInput = getDefaultModelName(provider)
+                            } else if (modelNameInput.isEmpty() || isDefaultModelName(modelNameInput)) {
+                                // 通用/无默认模型名的供应商仍沿用旧逻辑
                                 modelNameInput = getDefaultModelName(provider)
                             }
+
                             showApiProviderDialog = false
                         }
                 )
@@ -834,7 +854,9 @@ fun ModelApiSettingsSection(
                         Button(
                                 onClick = {
                                     // 将选中的模型用逗号连接
-                                    modelNameInput = selectedModels.value.joinToString(",")
+                                    val orderedSelection = modelsList.map { it.id }
+                                        .filter { selectedModels.value.contains(it) }
+                                    modelNameInput = orderedSelection.joinToString(",")
                                     if (selectedApiProvider == ApiProviderType.MNN) {
                                         AppLogger.d(TAG, "选择MNN模型: $modelNameInput")
                                     }

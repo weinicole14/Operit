@@ -213,7 +213,12 @@ class ModelConfigManager(private val context: Context) {
         val configId = UUID.randomUUID().toString()
         val configList = configListFlow.first().toMutableList()
 
-        val newConfig = ModelConfigData(id = configId, name = name)
+        val newConfig =
+                ModelConfigData(
+                        id = configId,
+                        name = name,
+                        apiProviderType = ApiProviderType.OPENAI_GENERIC
+                )
 
         // 保存新配置
         saveConfigToDataStore(newConfig)
