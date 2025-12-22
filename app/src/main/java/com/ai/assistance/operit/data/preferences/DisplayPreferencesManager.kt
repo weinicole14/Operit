@@ -59,6 +59,9 @@ class DisplayPreferencesManager private constructor(private val context: Context
         private val KEY_SCREENSHOT_FORMAT = stringPreferencesKey("screenshot_format")
         private val KEY_SCREENSHOT_QUALITY = intPreferencesKey("screenshot_quality")
         private val KEY_SCREENSHOT_SCALE_PERCENT = intPreferencesKey("screenshot_scale_percent")
+
+        // 虚拟屏幕相关设置的 Key
+        private val KEY_VIRTUAL_DISPLAY_BITRATE_KBPS = intPreferencesKey("virtual_display_bitrate_kbps")
     }
 
     /**
@@ -151,6 +154,11 @@ class DisplayPreferencesManager private constructor(private val context: Context
             preferences[KEY_SCREENSHOT_SCALE_PERCENT] ?: 100
         }
 
+    val virtualDisplayBitrateKbps: Flow<Int> =
+        context.displayPreferencesDataStore.data.map { preferences ->
+            preferences[KEY_VIRTUAL_DISPLAY_BITRATE_KBPS] ?: 3000
+        }
+
     /**
      * 保存显示设置
      */
@@ -166,7 +174,8 @@ class DisplayPreferencesManager private constructor(private val context: Context
         enableExperimentalVirtualDisplay: Boolean? = null,
         screenshotFormat: String? = null,
         screenshotQuality: Int? = null,
-        screenshotScalePercent: Int? = null
+        screenshotScalePercent: Int? = null,
+        virtualDisplayBitrateKbps: Int? = null
     ) {
         context.displayPreferencesDataStore.edit { preferences ->
             showModelProvider?.let { preferences[KEY_SHOW_MODEL_PROVIDER] = it }
@@ -183,6 +192,7 @@ class DisplayPreferencesManager private constructor(private val context: Context
             screenshotFormat?.let { preferences[KEY_SCREENSHOT_FORMAT] = it }
             screenshotQuality?.let { preferences[KEY_SCREENSHOT_QUALITY] = it }
             screenshotScalePercent?.let { preferences[KEY_SCREENSHOT_SCALE_PERCENT] = it }
+            virtualDisplayBitrateKbps?.let { preferences[KEY_VIRTUAL_DISPLAY_BITRATE_KBPS] = it }
         }
     }
 
@@ -210,6 +220,12 @@ class DisplayPreferencesManager private constructor(private val context: Context
         }
     }
 
+    fun getVirtualDisplayBitrateKbps(): Int {
+        return runBlocking {
+            virtualDisplayBitrateKbps.first()
+        }
+    }
+
     /**
      * 重置所有显示设置为默认值
      */
@@ -227,6 +243,7 @@ class DisplayPreferencesManager private constructor(private val context: Context
             preferences.remove(KEY_SCREENSHOT_FORMAT)
             preferences.remove(KEY_SCREENSHOT_QUALITY)
             preferences.remove(KEY_SCREENSHOT_SCALE_PERCENT)
+            preferences.remove(KEY_VIRTUAL_DISPLAY_BITRATE_KBPS)
         }
     }
 }

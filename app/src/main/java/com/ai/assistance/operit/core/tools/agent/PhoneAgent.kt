@@ -802,8 +802,14 @@ class ActionHandler(
                         val height = metrics.heightPixels
                         val dpi = metrics.densityDpi
 
-                        // 提升 Shower 虚拟屏幕的视频码率，改善画质与文字清晰度
-                        val created = ShowerController.ensureDisplay(context, width, height, dpi, bitrateKbps = 3000)
+                        val bitrateKbps = try {
+                            DisplayPreferencesManager.getInstance(context).getVirtualDisplayBitrateKbps()
+                        } catch (e: Exception) {
+                            AppLogger.e("ActionHandler", "Error reading virtual display bitrate preference", e)
+                            3000
+                        }
+
+                        val created = ShowerController.ensureDisplay(context, width, height, dpi, bitrateKbps = bitrateKbps)
                         val launched = if (created && hasLaunchableTarget) ShowerController.launchApp(packageName) else false
 
                         if (created && launched) {

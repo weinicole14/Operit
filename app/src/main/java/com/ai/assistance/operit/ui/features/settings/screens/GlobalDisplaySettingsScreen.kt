@@ -25,7 +25,7 @@ import com.ai.assistance.operit.ui.components.CustomScaffold
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun GlobalDisplaySettingsScreen(
     onBackPressed: () -> Unit
@@ -50,6 +50,7 @@ fun GlobalDisplaySettingsScreen(
     val screenshotFormat by displayPreferencesManager.screenshotFormat.collectAsState(initial = "PNG")
     val screenshotQuality by displayPreferencesManager.screenshotQuality.collectAsState(initial = 90)
     val screenshotScalePercent by displayPreferencesManager.screenshotScalePercent.collectAsState(initial = 100)
+    val virtualDisplayBitrateKbps by displayPreferencesManager.virtualDisplayBitrateKbps.collectAsState(initial = 3000)
     val keepScreenOn by apiPreferences.keepScreenOnFlow.collectAsState(initial = true)
 
     val hasBackgroundImage by userPreferences.useBackgroundImage.collectAsState(initial = false)
@@ -260,6 +261,77 @@ fun GlobalDisplaySettingsScreen(
                 },
                 backgroundColor = componentBackgroundColor
             )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(componentBackgroundColor)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = "虚拟屏幕码率",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = virtualDisplayBitrateKbps == 1500,
+                        onClick = {
+                            scope.launch {
+                                displayPreferencesManager.saveDisplaySettings(virtualDisplayBitrateKbps = 1500)
+                                showSaveSuccessMessage = true
+                            }
+                        },
+                        label = { Text("1.5 Mbps") }
+                    )
+                    FilterChip(
+                        selected = virtualDisplayBitrateKbps == 3000,
+                        onClick = {
+                            scope.launch {
+                                displayPreferencesManager.saveDisplaySettings(virtualDisplayBitrateKbps = 3000)
+                                showSaveSuccessMessage = true
+                            }
+                        },
+                        label = { Text("3 Mbps") }
+                    )
+                    FilterChip(
+                        selected = virtualDisplayBitrateKbps == 5000,
+                        onClick = {
+                            scope.launch {
+                                displayPreferencesManager.saveDisplaySettings(virtualDisplayBitrateKbps = 5000)
+                                showSaveSuccessMessage = true
+                            }
+                        },
+                        label = { Text("5 Mbps") }
+                    )
+                    FilterChip(
+                        selected = virtualDisplayBitrateKbps == 10000,
+                        onClick = {
+                            scope.launch {
+                                displayPreferencesManager.saveDisplaySettings(virtualDisplayBitrateKbps = 10000)
+                                showSaveSuccessMessage = true
+                            }
+                        },
+                        label = { Text("10 Mbps") }
+                    )
+                    FilterChip(
+                        selected = virtualDisplayBitrateKbps == 20000,
+                        onClick = {
+                            scope.launch {
+                                displayPreferencesManager.saveDisplaySettings(virtualDisplayBitrateKbps = 20000)
+                                showSaveSuccessMessage = true
+                            }
+                        },
+                        label = { Text("20 Mbps") }
+                    )
+                }
+            }
 
             Column(
                 modifier = Modifier
