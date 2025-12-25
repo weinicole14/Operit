@@ -23,6 +23,7 @@ import com.ai.assistance.operit.ui.main.components.LocalIsCurrentScreen
 import java.net.HttpURLConnection
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
@@ -98,9 +99,11 @@ fun HelpScreen(onBackPressed: () -> Unit = {}) {
     }
     LaunchedEffect(helpUrls) {
         helpUrls.forEachIndexed { index, url ->
-            val latency = pingUrl(url)
-            latencies[index] = latency
-            pingCompleted[index] = true
+            launch {
+                val latency = pingUrl(url)
+                latencies[index] = latency
+                pingCompleted[index] = true
+            }
         }
     }
 

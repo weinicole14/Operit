@@ -1,6 +1,7 @@
 package com.ai.assistance.operit.core.tools.defaultTool.standard
 
 import android.content.Context
+import android.graphics.Color as AndroidColor
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
@@ -13,15 +14,34 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.LinearLayout
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +71,7 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
+import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -80,6 +101,18 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
 
     // 存储WebView引用，用于在不同方法间共享
     private var webViewReference: WebView? = null
+    private var overlayWindowManager: WindowManager? = null
+    private var overlayComposeView: ComposeView? = null
+    private var overlayLayoutParams: WindowManager.LayoutParams? = null
+
+    private var overlayLifecycleOwner: ServiceLifecycleOwner? = null
+
+    private var indicatorComposeView: ComposeView? = null
+    private var indicatorLayoutParams: WindowManager.LayoutParams? = null
+
+    private val isExpandedState = mutableStateOf(false)
+    private val isExpandedByUserState = mutableStateOf(false)
+    private val isCaptchaDetectedState = mutableStateOf(false)
 
     override fun invoke(tool: AITool): ToolResult {
         val url = tool.parameters.find { it.name == "url" }?.value
@@ -127,6 +160,121 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
                     result = StringResultData(""),
                     error = "Error visiting web page: ${e.message}"
             )
+        }
+    }
+
+    @Composable
+    private fun SearchingIndicator(
+            onToggleFullscreen: () -> Unit,
+            onDragBy: (dx: Int, dy: Int) -> Unit
+    ) {
+        val transition = rememberInfiniteTransition(label = "indicator")
+        val primaryColor = MaterialTheme.colorScheme.primary
+
+        val bobbingDp =
+                transition.animateFloat(
+                        initialValue = -2f,
+                        targetValue = 2f,
+                        animationSpec =
+                                infiniteRepeatable(
+                                        animation = tween(durationMillis = 900, easing = LinearEasing),
+                                        repeatMode = RepeatMode.Reverse
+                                ),
+                        label = "bobbing"
+                )
+
+        val wiggleDeg =
+                transition.animateFloat(
+                        initialValue = -8f,
+                        targetValue = 8f,
+                        animationSpec =
+                                infiniteRepeatable(
+                                        animation = tween(durationMillis = 1200, easing = LinearEasing),
+                                        repeatMode = RepeatMode.Reverse
+                                ),
+                        label = "wiggle"
+                )
+
+        val pulse =
+                transition.animateFloat(
+                        initialValue = 0.96f,
+                        targetValue = 1.04f,
+                        animationSpec =
+                                infiniteRepeatable(
+                                        animation = tween(durationMillis = 1100, easing = LinearEasing),
+                                        repeatMode = RepeatMode.Reverse
+                                ),
+                        label = "pulse"
+                )
+
+        Surface(
+                shape = CircleShape,
+                color = Color.Transparent,
+                tonalElevation = 0.dp,
+                shadowElevation = 0.dp,
+                modifier =
+                        Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                                .pointerInput(Unit) {
+                                    detectDragGestures { change, dragAmount ->
+                                        onDragBy(dragAmount.x.roundToInt(), dragAmount.y.roundToInt())
+                                    }
+                                }
+                                .clickable { onToggleFullscreen() }
+        ) {
+            Box(
+                    modifier =
+                            Modifier
+                                    .fillMaxSize()
+                                    .scale(pulse.value)
+                                    .drawBehind {
+                                        val radius = size.minDimension / 2f
+                                        drawCircle(
+                                                brush =
+                                                        Brush.radialGradient(
+                                                                colors =
+                                                                        listOf(
+                                                                                Color.White.copy(alpha = 0.40f),
+                                                                                primaryColor.copy(alpha = 0.16f),
+                                                                                Color.Transparent
+                                                                        ),
+                                                                center = Offset(size.width * 0.30f, size.height * 0.28f),
+                                                                radius = radius * 1.15f
+                                                        ),
+                                                radius = radius
+                                        )
+
+                                        drawCircle(
+                                                color = Color.White.copy(alpha = 0.20f),
+                                                radius = radius * 0.22f,
+                                                center = Offset(size.width * 0.28f, size.height * 0.28f)
+                                        )
+
+                                        drawCircle(
+                                                color = Color.White.copy(alpha = 0.08f),
+                                                radius = radius * 0.90f,
+                                                center = Offset(size.width * 0.55f, size.height * 0.62f)
+                                        )
+                                    }
+                                    .border(
+                                            width = 1.dp,
+                                            color = Color.White.copy(alpha = 0.35f),
+                                            shape = CircleShape
+                                    ),
+                    contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                        imageVector = Icons.Filled.Search,
+                        contentDescription = null,
+                        tint = primaryColor,
+                        modifier =
+                                Modifier
+                                        .size(22.dp)
+                                        .offset(y = bobbingDp.value.dp)
+                                        .rotate(wiggleDeg.value)
+                )
+            }
         }
     }
 
@@ -238,7 +386,7 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
                 try {
                     val windowManager =
                             context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-                    val params = setupWindowParams()
+                    overlayWindowManager = windowManager
 
                     // 创建生命周期管理器
                     val lifecycleOwner =
@@ -247,6 +395,18 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
                                 handleLifecycleEvent(Lifecycle.Event.ON_START)
                                 handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
                             }
+
+                    overlayLifecycleOwner = lifecycleOwner
+                    isExpandedState.value = false
+                    isExpandedByUserState.value = false
+                    isCaptchaDetectedState.value = false
+
+                    if (indicatorLayoutParams == null) {
+                        indicatorLayoutParams = createIndicatorLayoutParams()
+                    }
+
+                    val params = setupWindowParams()
+                    overlayLayoutParams = params
 
                     val composeView =
                             ComposeView(context).apply {
@@ -260,6 +420,7 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
                                 setViewTreeViewModelStoreOwner(lifecycleOwner)
                                 setViewTreeSavedStateRegistryOwner(lifecycleOwner)
                             }
+                    overlayComposeView = composeView
 
                     composeView.setContent {
                         WebVisitUI(
@@ -285,6 +446,8 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
                                         // 清理WebView
                                         cleanupWebView(webViewReference)
 
+                                        removeIndicatorWindow()
+
                                         // 清理Compose View并移除窗口
                                         CoroutineScope(Dispatchers.Main).launch {
                                             // 首先设置内容为空，释放组合资源
@@ -301,6 +464,13 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
                                                 )
                                             }
 
+                                            if (overlayComposeView === composeView) {
+                                                overlayComposeView = null
+                                                overlayWindowManager = null
+                                                overlayLayoutParams = null
+                                                overlayLifecycleOwner = null
+                                            }
+
                                             // 恢复协程
                                             if (continuation.isActive) {
                                                 continuation.resume(content)
@@ -314,6 +484,15 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
                                             )
                                         }
                                     }
+                                },
+                                onCaptchaStateChanged = { isCaptcha ->
+                                    updateOverlayWindowLayout(isCaptcha)
+                                },
+                                isExpanded = isExpandedState,
+                                onMinimizeRequested = {
+                                    if (!isCaptchaDetectedState.value) {
+                                        setExpanded(false)
+                                    }
                                 }
                         )
                     }
@@ -321,6 +500,8 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
                     try {
                         windowManager.addView(composeView, params)
                         AppLogger.d(TAG, "Web browser window added")
+
+                        showIndicatorWindow()
 
                         // 添加取消回调以处理协程取消
                         continuation.invokeOnCancellation {
@@ -335,10 +516,18 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
                                     // 清理WebView资源
                                     cleanupWebView(webViewReference)
 
+                                    removeIndicatorWindow()
+
                                     // 移除视图
                                     composeView.setContent {}
                                     windowManager.removeView(composeView)
                                     AppLogger.d(TAG, "Web browser window removed on cancellation")
+                                    if (overlayComposeView === composeView) {
+                                        overlayComposeView = null
+                                        overlayWindowManager = null
+                                        overlayLayoutParams = null
+                                        overlayLifecycleOwner = null
+                                    }
                                 } catch (e: Exception) {
                                     AppLogger.e(TAG, "Error removing view on cancellation: ${e.message}")
                                 }
@@ -358,6 +547,8 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
 
     /** Setup window parameters for the WebView dialog */
     private fun setupWindowParams(): WindowManager.LayoutParams {
+        val displayMetrics = context.resources.displayMetrics
+
         return WindowManager.LayoutParams().apply {
             // Set window type
             type =
@@ -369,17 +560,196 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
 
             // Important: Do not set FLAG_NOT_FOCUSABLE or FLAG_NOT_TOUCHABLE
             // as they would prevent interaction with the WebView
-            flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+            flags =
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
 
             // Make window transparent to properly display the Compose UI
             format = PixelFormat.TRANSLUCENT
 
-            // Full screen window
-            width = WindowManager.LayoutParams.MATCH_PARENT
-            height = WindowManager.LayoutParams.MATCH_PARENT
+            val compactSizePx = (displayMetrics.density * 1f).toInt().coerceAtLeast(1)
+            width = compactSizePx
+            height = compactSizePx
 
-            // Center the window
-            gravity = Gravity.CENTER
+            gravity = Gravity.TOP or Gravity.START
+
+            val indicatorParams = indicatorLayoutParams
+            if (indicatorParams != null) {
+                x = indicatorParams.x
+                y = indicatorParams.y
+            }
+        }
+    }
+
+    private fun createIndicatorLayoutParams(): WindowManager.LayoutParams {
+        val displayMetrics = context.resources.displayMetrics
+        val density = displayMetrics.density
+        val sizePx = (density * 40f).roundToInt().coerceAtLeast(1)
+
+        return WindowManager.LayoutParams(
+                sizePx,
+                sizePx,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                } else {
+                    WindowManager.LayoutParams.TYPE_PHONE
+                },
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+                PixelFormat.TRANSLUCENT
+        ).apply {
+            gravity = Gravity.TOP or Gravity.START
+            val safeMargin = (density * 16f).roundToInt()
+            x = safeMargin
+            y = safeMargin
+        }
+    }
+
+    private fun showIndicatorWindow() {
+        val windowManager = overlayWindowManager ?: return
+        val lifecycleOwner = overlayLifecycleOwner ?: return
+        if (indicatorComposeView != null) return
+
+        val params = indicatorLayoutParams ?: createIndicatorLayoutParams().also { indicatorLayoutParams = it }
+
+        val view =
+                ComposeView(context).apply {
+                    setBackgroundColor(AndroidColor.TRANSPARENT)
+                    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+                    setViewTreeLifecycleOwner(lifecycleOwner)
+                    setViewTreeViewModelStoreOwner(lifecycleOwner)
+                    setViewTreeSavedStateRegistryOwner(lifecycleOwner)
+                    setContent {
+                        MaterialTheme {
+                            SearchingIndicator(
+                                    onToggleFullscreen = { setExpanded(true) },
+                                    onDragBy = { dx, dy -> moveIndicatorBy(dx, dy) }
+                            )
+                        }
+                    }
+                }
+
+        indicatorComposeView = view
+        windowManager.addView(view, params)
+    }
+
+    private fun hideIndicatorWindow() {
+        val windowManager = overlayWindowManager
+        val view = indicatorComposeView
+        if (windowManager != null && view != null) {
+            try {
+                windowManager.removeView(view)
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "Error removing indicator view: ${e.message}")
+            }
+        }
+        indicatorComposeView = null
+    }
+
+    private fun removeIndicatorWindow() {
+        val windowManager = overlayWindowManager
+        val view = indicatorComposeView
+        if (windowManager != null && view != null) {
+            try {
+                windowManager.removeView(view)
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "Error removing indicator view: ${e.message}")
+            }
+        }
+        indicatorComposeView = null
+        indicatorLayoutParams = null
+    }
+
+    private fun moveIndicatorBy(dx: Int, dy: Int) {
+        val windowManager = overlayWindowManager ?: return
+        val view = indicatorComposeView ?: return
+        val params = indicatorLayoutParams ?: return
+
+        val displayMetrics = context.resources.displayMetrics
+        val maxX = (displayMetrics.widthPixels - params.width).coerceAtLeast(0)
+        val maxY = (displayMetrics.heightPixels - params.height).coerceAtLeast(0)
+
+        params.x = (params.x + dx).coerceIn(0, maxX)
+        params.y = (params.y + dy).coerceIn(0, maxY)
+
+        indicatorLayoutParams = params
+        windowManager.updateViewLayout(view, params)
+        syncWebOverlayToIndicator()
+    }
+
+    private fun syncWebOverlayToIndicator() {
+        if (isExpandedState.value) return
+        val windowManager = overlayWindowManager ?: return
+        val view = overlayComposeView ?: return
+        val overlayParams = overlayLayoutParams ?: return
+        val indicatorParams = indicatorLayoutParams ?: return
+
+        overlayParams.x = indicatorParams.x
+        overlayParams.y = indicatorParams.y
+        overlayLayoutParams = overlayParams
+        if (view.windowToken != null) {
+            windowManager.updateViewLayout(view, overlayParams)
+        }
+    }
+
+    private fun setExpanded(expanded: Boolean) {
+        isExpandedState.value = expanded
+        isExpandedByUserState.value = expanded
+        updateOverlayWindowLayout()
+    }
+
+    private fun updateOverlayWindowLayout(isCaptchaVerification: Boolean) {
+        isCaptchaDetectedState.value = isCaptchaVerification
+        if (isCaptchaVerification) {
+            isExpandedState.value = true
+        } else if (!isExpandedByUserState.value) {
+            isExpandedState.value = false
+        }
+        updateOverlayWindowLayout()
+    }
+
+    private fun updateOverlayWindowLayout() {
+        val windowManager = overlayWindowManager ?: return
+        val view = overlayComposeView ?: return
+        val params = (overlayLayoutParams ?: (view.layoutParams as? WindowManager.LayoutParams)) ?: return
+
+        val displayMetrics = context.resources.displayMetrics
+        val expanded = isExpandedState.value
+
+        if (expanded) {
+            params.width = WindowManager.LayoutParams.MATCH_PARENT
+            params.height = WindowManager.LayoutParams.MATCH_PARENT
+            params.gravity = Gravity.CENTER
+            params.x = 0
+            params.y = 0
+            params.flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+            hideIndicatorWindow()
+        } else {
+            val compactSizePx = (displayMetrics.density * 1f).toInt().coerceAtLeast(1)
+            params.width = compactSizePx
+            params.height = compactSizePx
+            params.gravity = Gravity.TOP or Gravity.START
+            params.flags =
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+
+            if (indicatorComposeView == null) {
+                showIndicatorWindow()
+            }
+
+            val indicatorParams = indicatorLayoutParams
+            if (indicatorParams != null) {
+                params.x = indicatorParams.x
+                params.y = indicatorParams.y
+            }
+        }
+
+        overlayLayoutParams = params
+        if (view.windowToken != null) {
+            windowManager.updateViewLayout(view, params)
         }
     }
 
@@ -421,7 +791,10 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
     private fun WebVisitUI(
             url: String,
             onWebViewCreated: (WebView) -> Unit,
-            onContentExtracted: (String) -> Unit
+            onContentExtracted: (String) -> Unit,
+            onCaptchaStateChanged: (Boolean) -> Unit,
+            isExpanded: State<Boolean>,
+            onMinimizeRequested: () -> Unit
     ) {
         // 页面状态
         val isLoading = remember { mutableStateOf(true) } // 页面是否正在加载
@@ -438,6 +811,10 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
         val autoCountdownActive = remember { mutableStateOf(false) } // 倒计时是否激活
         val autoCountdownSeconds = remember { mutableStateOf(5) } // 倒计时秒数
         val isCaptchaVerification = remember { mutableStateOf(false) } // 是否需要人机验证
+
+        LaunchedEffect(isCaptchaVerification.value) {
+            onCaptchaStateChanged(isCaptchaVerification.value)
+        }
 
         // 修改LaunchedEffect部分，使滚动和倒计时同时进行
         LaunchedEffect(autoCountdownActive.value, isCaptchaVerification.value) {
@@ -478,12 +855,17 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
                             horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         // Header
-                        Text(
-                                text = "网页访问中",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                        )
+                        Row(
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                    text = "网页访问中",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f)
+                            )
+                        }
 
                         // URL info
                         Box(
@@ -686,7 +1068,7 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
                         // 按钮区域 - 根据当前状态显示不同按钮
                         Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             // 左侧按钮 - 根据状态变化
                             OutlinedButton(
@@ -705,6 +1087,8 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
                                             onContentExtracted("操作已取消")
                                         }
                                     }
+                            ,
+                                    modifier = Modifier.weight(1f)
                             ) {
                                 Text(
                                         when {
@@ -717,7 +1101,19 @@ class StandardWebVisitTool(private val context: Context) : ToolExecutor {
                                 )
                             }
 
-                            Spacer(modifier = Modifier.width(8.dp))
+                            if (isExpanded.value && !isCaptchaVerification.value) {
+                                OutlinedButton(
+                                        onClick = onMinimizeRequested,
+                                        modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                            imageVector = Icons.Filled.KeyboardArrowDown,
+                                            contentDescription = null
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("缩小")
+                                }
+                            }
 
                             // 右侧按钮 - 根据状态变化
                             Button(

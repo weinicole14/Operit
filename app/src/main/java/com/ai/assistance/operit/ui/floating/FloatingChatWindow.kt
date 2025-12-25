@@ -142,33 +142,38 @@ fun FloatingChatWindow(
         transitionSpec = {
             val targetMode = targetState
             val initialMode = initialState
-            
+
             // 判断是否从球模式切换到其他模式，或从其他模式切换到球模式
             val isToBall = targetMode == FloatingMode.BALL || targetMode == FloatingMode.VOICE_BALL
             val isFromBall = initialMode == FloatingMode.BALL || initialMode == FloatingMode.VOICE_BALL
-            
+
             // 判断是否是窗口和全屏之间的切换
-            val isWindowFullscreenTransition = 
+            val isWindowFullscreenTransition =
                 (initialMode == FloatingMode.WINDOW && targetMode == FloatingMode.FULLSCREEN) ||
                 (initialMode == FloatingMode.FULLSCREEN && targetMode == FloatingMode.WINDOW)
-            
+
             if (isWindowFullscreenTransition) {
-                // 窗口 ↔ 全屏：彻底禁用动画，避免任何延迟
-                EnterTransition.None togetherWith ExitTransition.None
+                // 窗口 ↔ 全屏：使用简洁的缩放 + 淡入淡出动画
+                (fadeIn(animationSpec = tween(220, easing = FastOutSlowInEasing)) +
+                 scaleIn(initialScale = 0.92f, animationSpec = tween(220, easing = FastOutSlowInEasing)))
+                    .togetherWith(
+                        fadeOut(animationSpec = tween(160)) +
+                        scaleOut(targetScale = 1.03f, animationSpec = tween(160))
+                    )
             } else if (isToBall && !isFromBall) {
                 // 其他模式 -> 球模式：窗口快速缩小消失，球从极小爆炸式出现
-                (fadeIn(animationSpec = tween(350, delayMillis = 150, easing = FastOutSlowInEasing)) + 
+                (fadeIn(animationSpec = tween(350, delayMillis = 150, easing = FastOutSlowInEasing)) +
                  scaleIn(initialScale = 0.0f, animationSpec = tween(350, delayMillis = 150, easing = FastOutSlowInEasing)))
                     .togetherWith(
-                        fadeOut(animationSpec = tween(150)) + 
+                        fadeOut(animationSpec = tween(150)) +
                         scaleOut(targetScale = 0.0f, animationSpec = tween(150))
                     )
             } else if (isFromBall && !isToBall) {
                 // 球模式 -> 其他模式：球瞬间消失，窗口从中心炸开展现
-                (fadeIn(animationSpec = tween(400, delayMillis = 100, easing = FastOutSlowInEasing)) + 
+                (fadeIn(animationSpec = tween(400, delayMillis = 100, easing = FastOutSlowInEasing)) +
                  scaleIn(initialScale = 0.0f, animationSpec = tween(400, delayMillis = 100, easing = FastOutSlowInEasing)))
                     .togetherWith(
-                        fadeOut(animationSpec = tween(100)) + 
+                        fadeOut(animationSpec = tween(100)) +
                         scaleOut(targetScale = 0.0f, animationSpec = tween(100))
                     )
             } else {
