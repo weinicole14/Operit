@@ -1,6 +1,6 @@
 /* METADATA
 {
-  "name": "nanobanana_imgloc_pro",
+  "name": "nanobanana_Integration",
   "description": "使用 Nano Banana API (基于Grsai的api服务/https://grsai.com/) 根据提示词画图，支持文生图和图生图（可传入参考图片URL进行图像编辑与合成），将图片保存到本地 /sdcard/Download/Operit/draws/ 目录，并返回 Markdown 图片提示,集成 Nano Banana 绘图, ImgLoc 图床(https://imgloc.com/)与file_converter文件压缩。绘图时若提供本地参考图，会自动通过file_converter压缩到10mb以内并通过 ImgLoc 上传获取 URL。（注意！！！使用本工具时请不要使用代理工具，否则有可能导致生图失败）",
   "env": [
     "NANOBANANA_API_KEY",
