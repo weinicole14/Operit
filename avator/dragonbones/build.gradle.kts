@@ -9,12 +9,17 @@ plugins {
 android {
     namespace = "com.dragonbones"
     compileSdk = 36
+    ndkVersion = "29.0.14206865"
 
     defaultConfig {
         minSdk = 26
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+
+        ndk {
+            abiFilters.addAll(listOf("arm64-v8a"))
+        }
 
         externalNativeBuild {
             cmake {

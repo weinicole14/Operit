@@ -14,6 +14,20 @@ operit_prepare_git_source(
     "f696143045e07b7c4c4590bdd95534e9e8074b37"
 )
 
+# DragonBonesCPP 自带的老版 rapidjson 的 GenericStringRef::operator= 会给 const 成员
+# 赋值，新 clang（NDK r29 的 clang 21）按 C++17 语义直接报错，上游至今未修复。
+# 该 operator= 无任何调用方，删除即可；rapidjson 上游在后续版本中已移除。
+# 使用幂等替换，每次 CMake 重新配置都会重新应用（FetchContent 会覆盖源码目录）。
+set(DRAGONBONES_RAPIDJSON_HEADER "${OPERIT_DRAGONBONES_CPP_SOURCE_DIR}/3rdParty/rapidjson/document.h")
+file(READ "${DRAGONBONES_RAPIDJSON_HEADER}" DRAGONBONES_RAPIDJSON_CONTENT)
+string(REPLACE
+    "    GenericStringRef& operator=(const GenericStringRef& rhs) { s = rhs.s; length = rhs.length; }\n"
+    ""
+    DRAGONBONES_RAPIDJSON_CONTENT
+    "${DRAGONBONES_RAPIDJSON_CONTENT}"
+)
+file(WRITE "${DRAGONBONES_RAPIDJSON_HEADER}" "${DRAGONBONES_RAPIDJSON_CONTENT}")
+
 set(DRAGONBONES_RUNTIME_ROOT "${OPERIT_DRAGONBONES_CPP_SOURCE_DIR}/DragonBones/src")
 set(DRAGONBONES_RAPIDJSON_ROOT "${OPERIT_DRAGONBONES_CPP_SOURCE_DIR}/3rdParty")
 set(DRAGONBONES_ANDROID_CPP_ROOT "${OPERIT_DRAGONBONES_CPP_SOURCE_DIR}/AndroidCompose/src/dragonBones/cpp")

@@ -166,6 +166,10 @@ set(MNN_BUILD_QUANTOOLS OFF CACHE BOOL "Build quantools" FORCE)
 set(MNN_EVALUATION OFF CACHE BOOL "Build evaluation" FORCE)
 set(MNN_BUILD_CONVERTER OFF CACHE BOOL "Build converter" FORCE)
 set(MNN_BUILD_TRAIN OFF CACHE BOOL "Build train" FORCE)
+# 关闭命令行 demo：上游 qwen3_tts_demo 无条件 include audio/audio.hpp，
+# 但 include 路径仅在 MNN_BUILD_AUDIO=ON 时提供（上游不一致），
+# Android 端不需要这些命令行 demo，避免开启 audio 依赖。
+set(MNN_LLM_BUILD_DEMO OFF CACHE BOOL "Build LLM demo" FORCE)
 
 # 添加 MNN 主项目
 add_subdirectory(${MNN_SOURCE_DIR} ${OPERIT_MNN_BINARY_DIR})
